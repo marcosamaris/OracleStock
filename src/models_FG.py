@@ -108,7 +108,7 @@ def model_conv1_FG(stock):
 
     # fit model
     early_stop = EarlyStopping(monitor='val_loss', patience=200)
-    model.fit(X, y, epochs=500, verbose=0, validation_split=0.2,  callbacks=[early_stop])
+    model.fit(X, y, epochs=2000, verbose=0, validation_split=0.2,  callbacks=[early_stop])
     
     model.save('models/' + stock + '-FG-CNN.h5')
     
@@ -152,7 +152,7 @@ def model_LSTM_FG(stock):
 
     # fit model
     early_stop = EarlyStopping(monitor='val_loss', patience=200)
-    model.fit(X, y, epochs=500, verbose=0, validation_split=0.2,  callbacks=[early_stop])
+    model.fit(X, y, epochs=2000, verbose=0, validation_split=0.2,  callbacks=[early_stop])
     
     model.save('models/' + stock + '-FG-LSTM.h5')    
     
@@ -205,7 +205,8 @@ def model_CNN_LSTM_2D_FG(stock):
     
     # fit model
     early_stop = EarlyStopping(monitor='val_loss', patience=200)
-    model.fit(X, y, epochs=500, verbose=0, validation_split=0.2,  callbacks=[early_stop])
+
+    model.fit(X, y, epochs=2000, verbose=0, validation_split=0.2,  callbacks=[early_stop])
     
     model.save('models/' + stock + '-FG-CNN-LSTM.h5')
         
@@ -263,7 +264,7 @@ def model_ConvLSTM2D_FG(stock):
     # fit model
     early_stop = EarlyStopping(monitor='val_loss', patience=200)
     
-    model.fit(X, y, epochs=500, verbose=0, validation_split=0.2,  callbacks=[early_stop])
+    model.fit(X, y, epochs=2000, verbose=0, validation_split=0.2,  callbacks=[early_stop])
     
     model.save('models/' + stock + '-FG-ConvLSTM2D.h5')
     
@@ -277,7 +278,7 @@ def plot_model_predictions(stock):
 
     df_foreign = load_foreign_stocks(foreign_stocks) 
 
-    data = pd.concat([df_foreign.iloc[:, 0:2],data[['Volume', 'Low', 'Adj Close', 'High']]], axis=1, sort=True)[:-5]
+    data = pd.concat([df_foreign.iloc[:, 0:2],data[['Volume', 'Low', 'Adj Close', 'High']]], axis=1, sort=True)[:-1]
     data = data.dropna()
     
     scaler = MinMaxScaler(feature_range=[0,1])
@@ -490,7 +491,7 @@ def plot_model_predictions(stock):
     return (stock, True)
 
 
-def downlaod_data_stocks(stock):
+def download_data_stocks(stock):
     data = pdr.get_data_yahoo(stock, start='2017/12/16')
     data.to_csv('data/'+ stock + '.csv')
     return (stock, True)
@@ -509,26 +510,37 @@ foreign_stocks = [
 stocks = pd.read_csv('bovespa.csv')
 stocks = stocks['codigo.sa'].values
 
-stocks = ['CCRO3.SA', 'COGN3.SA', 'CSNA3.SA', 'ECOR3.SA', 'EZTC3.SA', 'LINX3.SA', 'TOTS3.SA', 'VVAR3.SA'
-]
+#stocks = ['CCRO3.SA', 'COGN3.SA', 'CSNA3.SA', 'ECOR3.SA', 'EZTC3.SA', 'LINX3.SA', 'TOTS3.SA', 'VVAR3.SA']
 # if __name__ == '__main__':
 	
-pool = Pool(2)
+pool = Pool(5)
 var = len(stocks)
-pool.map(model_conv1_FG, list(stocks[:var]))    
-pool.map(model_LSTM_FG, list(stocks[:var]))
-pool.map(model_CNN_LSTM_2D_FG, list(stocks[:var]))
-pool.map(model_ConvLSTM2D_FG, list(stocks[:var]))
+pool.map(download_data_stocks , list(stocks))    
+pool.map(download_data_stocks, list(foreign_stocks))    
+
+#pool.map(model_conv1_FG, list(stocks[:var]))    
+#pool.map(model_LSTM_FG, list(stocks[:var]))
+#pool.map(model_CNN_LSTM_2D_FG, list(stocks[:var]))
+#pool.map(model_ConvLSTM2D_FG, list(stocks[:var]))
 # pool.map(plot_model_predictions, list(stocks[:var]))
 
+import tensorflow as tf 
 
-for stock in stocks[:var]:
+if tf.test.gpu_device_name(): 
+    print('Default GPU Device: {}'.format(tf.test.gpu_device_name()))
+else:
+    print("Please install GPU version of TF")
+
+print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
+
+
+#for stock in stocks[:var]:
 
 # # # model_conv1_FG(stock)
 # # # model_LSTM_FG(stock)
-# # # model_CNN_LSTM_2D_FG(stock)
-# # # model_ConvLSTM2D_FG(stock)
+#    model_CNN_LSTM_2D_FG(stock)
+#    model_ConvLSTM2D_FG(stock)
 
-    plot_model_predictions(stock)
+#    plot_model_predictions(stock)
 
 
