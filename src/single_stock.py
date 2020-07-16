@@ -315,7 +315,7 @@ def plot_model_predictions(stock):
     test_date = pd.DataFrame(pd.date_range(date_end, date_begin), columns=['Date'])
     test_date['weekday'] = test_date['Date'].dt.strftime('%w').values.astype(int)
     test_date = pd.to_datetime(test_date['Date'].loc[(test_date['weekday'] != 6) & 
-                                                     (test_date['weekday'] != 0)].reset_index(drop=True).values)
+                                    (test_date['weekday'] != 0)].reset_index(drop=True).values)
     
     
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2,figsize=(9,7), sharex=True,sharey=False)
