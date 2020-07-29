@@ -1,4 +1,4 @@
-import pickle
+
 import sys 
 import time
 import datetime
@@ -62,43 +62,50 @@ def load_foreign_stocks(foreign_stocks, feature = 'Close'):
         temp_df = pd.read_csv('./data/' + stock + '.csv')
         temp_df.index = temp_df['Date']
     
-        df_foreign = pd.concat([df_foreign, temp_df[feature]], axis=1, sort=True)
-        df_foreign = df_foreign.dropna() 
-    df_foreign.columns = foreign_stocks                                            
+        df_foreign = pd.concat([df_foreign, temp_df[[feature]]], axis=1, sort=True)
+        df_foreign = df_foreign.dropna()                                             
 
     return df_foreign
-    
-from sklearn.ensemble import RandomForestRegressor
 
-def model_conv1_FG(stock):
+
+
+def clean_dataset(df):
+    assert isinstance(df, pd.DataFrame), "df needs to be a pd.DataFrame"
+    df.dropna(inplace=True)
+    indices_to_keep = ~df.isin([np.nan, np.inf, -np.inf]).any(1)
+    return df[indices_to_keep].astype(np.float64)
+
+def model_conv1_FG(stock, interval):
     
-    data = pd.read_csv('data/' + stock + '.csv')
+    data = pd.read_csv('data/' + stock  + '-' + interval + '.csv')
     data.index = data['Date']
-    data = data[data.index >= '2015-05-15']
+    # data = data[data.index >= '2019-05-15']
+    
+    df_foreign = load_foreign_stocks(foreign_stocks) 
 
     data = data[['Open', 'High', 'Low', 'Close', 'Volume']]
     data.loc[:,'HighLoad'] = (data['High'] - data['Close']) / data['Close'] * 100.0
     data.loc[:,'Change'] = (data['Close'] - data['Open']) / data['Open'] * 100.0
-    
+
+    # [['HighLoad', 'Change', 'Volume', 'Close']]
+
     df_foreign = load_foreign_stocks(foreign_stocks) 
 
-    data = pd.concat([data[['HighLoad', 'Change', 'Volume', 'Low', 'High', 'Close']]], axis=1, sort=True)[:-10]
-    data = data.dropna()
-    print(np.shape(data))
+    
+    data = pd.concat([data[['HighLoad', 'Change', 'Close']]], axis=1, sort=True)[:-7]
+    
+    data = clean_dataset(data)
     
     scaler = MinMaxScaler(feature_range=[0,1])
-    
-    # define input sequence
-    scaler_norm = StandardScaler()
     # define input sequence
     dataset = scaler.fit_transform(data.ffill().values)
 
     # choose a number of time steps
-    n_steps_in, n_steps_out = 5, 3
+    n_steps_in, n_steps_out = 7, 3
     
     # convert into input/output
     X, y = split_sequences(dataset, n_steps_in, n_steps_out)
-    
+             
     # flatten output
     y = y[:,:,-1:]
     
@@ -110,64 +117,63 @@ def model_conv1_FG(stock):
     
     # define model
     model = Sequential()
-    model.add(Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(n_steps_in, n_features)))
-    model.add(Dropout(0.5))
-    
-    
+    model.add(Conv1D(filters=64, kernel_size=1, activation='relu', input_shape=(n_steps_in, n_features)))
     model.add(Conv1D(filters=64, kernel_size=3, activation='relu'))
-    model.add(Dropout(0.5))
-    
     # model.add(Conv1D(filters=64, kernel_size=3, activation='relu'))
-    # model.add(Dropout(0.5))
-        
+    # model.add(Conv1D(filters=64, kernel_size=3, activation='relu'))
+    
+    
+    model.add(Conv1D(filters=64, kernel_size=3, activation='relu'))    
+    model.add(Dropout(0.5))
+    model.add(MaxPooling1D())
+    
+    
     model.add(Flatten())
-    model.add(Dense(10, activation='relu'))
-    model.add(Dense(10, activation='relu'))
+    model.add(Dense(30, activation='relu'))
+    model.add(Dense(20, activation='relu'))
     model.add(Dense(10, activation='relu'))
     model.add(Dense(n_output)) 
 
     model.compile(optimizer='adam', loss='mse')
     
     # fit model
-    early_stop = EarlyStopping(monitor='val_loss', patience=10)
-    model.fit(X, y, epochs=200, verbose=0,     validation_split=0.05,  callbacks=[early_stop])
-
-    filename = 'models/' + stock + '-FG-CNN-2y.h5'
+    early_stop = EarlyStopping(monitor='val_loss', patience=200)
+    model.fit(X, y, epochs=2000, verbose=0,    validation_split=0.2,  callbacks=[early_stop])
     
-    model.save(filename)
-
+    model.save('models/' + stock + '-FG-CNN-' + interval +'.h5')
     del model
 
     keras.backend.clear_session()
     
     return (stock, True)
 
-def model_LSTM_FG(stock):
+def model_LSTM_FG(stock, interval):
     
-    data = pd.read_csv('data/' + stock + '.csv')
+    data = pd.read_csv('data/' + stock  + '-' + interval + '.csv')
     data.index = data['Date']
-    data = data[data.index >= '2015-05-15']
+    # data = data[data.index >= '2019-05-15']
 
+    df_foreign = load_foreign_stocks(foreign_stocks) 
+    
     data = data[['Open', 'High', 'Low', 'Close', 'Volume']]
     data.loc[:,'HighLoad'] = (data['High'] - data['Close']) / data['Close'] * 100.0
     data.loc[:,'Change'] = (data['Close'] - data['Open']) / data['Open'] * 100.0
 
-    
-
+    # [['HighLoad', 'Change', 'Volume', 'Close']]
 
     df_foreign = load_foreign_stocks(foreign_stocks) 
+
+    data = pd.concat([data[['HighLoad', 'Change', 'Close']]], axis=1, sort=True)[:-7]
+
     
-    data = pd.concat([data[['HighLoad', 'Change', 'Volume', 'Low', 'High', 'Close']]], axis=1, sort=True)[:-10]
-    data = data.dropna()
+    data = clean_dataset(data)
     
     scaler = MinMaxScaler(feature_range=[0,1])
-    # define input sequence
-    scaler_norm = StandardScaler()
     # define input sequence
     dataset = scaler.fit_transform(data.ffill().values)
 
     # choose a number of time steps
-    n_steps_in, n_steps_out = 5, 3
+    n_steps_in, n_steps_out = 7, 3
     # convert into input/output
     X, y = split_sequences(dataset, n_steps_in, n_steps_out)
                            
@@ -199,10 +205,10 @@ def model_LSTM_FG(stock):
     model.compile(optimizer='adam', loss='mse')
     # print(model.summary())
     # fit model
-    early_stop = EarlyStopping(monitor='val_loss', patience=10)
-    model.fit(X, y, epochs=200, verbose=0,    validation_split=0.05,  callbacks=[early_stop])
+    early_stop = EarlyStopping(monitor='val_loss', patience=200)
+    model.fit(X, y, epochs=2000, verbose=0,    validation_split=0.2,  callbacks=[early_stop])
     
-    model.save('models/' + stock + '-FG-LSTM-2y.h5')    
+    model.save('models/' + stock + '-FG-LSTM-' + interval +'.h5')    
 
     del model
     keras.backend.clear_session()
@@ -210,33 +216,32 @@ def model_LSTM_FG(stock):
     return (stock, True)
 
 
-def model_CNN_LSTM_2D_FG(stock):
-
-    data = pd.read_csv('data/' + stock + '.csv')
+def model_CNN_LSTM_2D_FG(stock, interval):
+    
+    data = pd.read_csv('data/' + stock  + '-' + interval + '.csv')
     data.index = data['Date']
-    data = data[data.index >= '2015-05-15']
+    # data = data[data.index >= '2019-05-15']
+
+    df_foreign = load_foreign_stocks(foreign_stocks) 
 
     data = data[['Open', 'High', 'Low', 'Close', 'Volume']]
     data.loc[:,'HighLoad'] = (data['High'] - data['Close']) / data['Close'] * 100.0
     data.loc[:,'Change'] = (data['Close'] - data['Open']) / data['Open'] * 100.0
 
-    
-
+    # [['HighLoad', 'Change', 'Volume', 'Close']]
 
     df_foreign = load_foreign_stocks(foreign_stocks) 
 
-    data = pd.concat([data[['HighLoad', 'Change', 'Volume', 'Low', 'High', 'Close']]], axis=1, sort=True)[:-10]
+    data = pd.concat([data[['HighLoad', 'Change', 'Close']]], axis=1, sort=True)[:-7]
 
-    data = data.dropna()
+    data = clean_dataset(data)
     
     scaler = MinMaxScaler(feature_range=[0,1])
-    # define input sequence
-    scaler_norm = StandardScaler()
     # define input sequence
     dataset = scaler.fit_transform(data.ffill().values)
 
     # choose a number of time steps
-    n_steps_in, n_steps_out = 5, 3
+    n_steps_in, n_steps_out = 7, 3
     # convert into input/output
     X, y_complete = split_sequences(dataset, n_steps_in, n_steps_out)
 
@@ -257,10 +262,10 @@ def model_CNN_LSTM_2D_FG(stock):
                               input_shape=(n_steps_in, n_features_in, 1)))
     
     model.add(TimeDistributed(Conv1D(filters=64, kernel_size=2, activation='relu')))                            
-    model.add(TimeDistributed(Conv1D(filters=64, kernel_size=2, activation='relu')))
-    model.add(TimeDistributed(Conv1D(filters=64, kernel_size=2, activation='relu')))
+    # model.add(TimeDistributed(Conv1D(filters=64, kernel_size=2, activation='relu')))
+    # model.add(TimeDistributed(Conv1D(filters=64, kernel_size=2, activation='relu')))
     
-    # model.add(TimeDistributed(MaxPooling1D(pool_size=2)))
+    model.add(TimeDistributed(MaxPooling1D(pool_size=2)))
     # model.add(TimeDistributed(Conv1D(filters=64, kernel_size=1, activation='relu')))
     # model.add(TimeDistributed(MaxPooling1D(pool_size=2)))
     
@@ -277,11 +282,11 @@ def model_CNN_LSTM_2D_FG(stock):
     # print(model.summary())
     
     # fit model
-    early_stop = EarlyStopping(monitor='val_loss', patience=5)
+    early_stop = EarlyStopping(monitor='val_loss', patience=100)
 
-    model.fit(X, y, epochs=100, verbose=0,    validation_split=0.05,  callbacks=[early_stop])
+    model.fit(X, y, epochs=1000, verbose=0,    validation_split=0.2,  callbacks=[early_stop])
     
-    model.save('models/' + stock + '-FG-CNN-LSTM-2y.h5')
+    model.save('models/' + stock + '-FG-CNN-LSTM-' + interval +'.h5')
 
     del model
     keras.backend.clear_session()
@@ -289,33 +294,33 @@ def model_CNN_LSTM_2D_FG(stock):
     return (stock, True)
 
 
-def model_ConvLSTM2D_FG(stock):
-
-    data = pd.read_csv('data/' + stock + '.csv')
+def model_ConvLSTM2D_FG(stock, interval):
+    
+    data = pd.read_csv('data/' + stock  + '-' + interval + '.csv')
     data.index = data['Date']
-    data = data[data.index >= '2015-05-15']
+    # data = data[data.index >= '2019-05-15']
+
+    df_foreign = load_foreign_stocks(foreign_stocks) 
 
     data = data[['Open', 'High', 'Low', 'Close', 'Volume']]
     data.loc[:,'HighLoad'] = (data['High'] - data['Close']) / data['Close'] * 100.0
     data.loc[:,'Change'] = (data['Close'] - data['Open']) / data['Open'] * 100.0
 
-    
+    # [['HighLoad', 'Change', 'Volume', 'Close']]
 
-    df_foreign = load_foreign_stocks(foreign_stocks) 
+    df_foreign = load_foreign_stocks(foreign_stocks)
 
-    data = pd.concat([data[['HighLoad', 'Change', 'Volume', 'Low', 'High', 'Close']]], axis=1, sort=True)[:-10]
+    data = pd.concat([data[['HighLoad', 'Change', 'Close']]], axis=1, sort=True)[:-7]
 
-    data = data.dropna()
+    data = clean_dataset(data)
 
     scaler = MinMaxScaler(feature_range=[0,1])
     
     # define input sequence
-    scaler_norm = StandardScaler()
-    # define input sequence
     dataset = scaler.fit_transform(data.ffill().values)
 	
     # choose a number of time steps
-    n_steps_in, n_steps_out = 5, 3
+    n_steps_in, n_steps_out = 7, 3
     # convert into input/output
     X, y_complete = split_sequences(dataset, n_steps_in, n_steps_out)
 
@@ -336,12 +341,12 @@ def model_ConvLSTM2D_FG(stock):
                          input_shape=(n_steps_in, n_features_in, 1, 1),
                          padding = 'same', return_sequences = True))
                          
-    model.add(Dropout(0.2, name = 'dropout_1')) 
-    model.add(BatchNormalization(name = 'batch_norm_1'))
-    model.add(ConvLSTM2D(filters=64, kernel_size=(3,1), activation='relu'))
+    # model.add(Dropout(0.2, name = 'dropout_1'))
+    # model.add(BatchNormalization(name = 'batch_norm_1'))
+    # model.add(ConvLSTM2D(filters=64, kernel_size=(3,1), activation='relu'))
 
-    model.add(TimeDistributed(Conv1D(filters=64, kernel_size=1, activation='relu')))
-    model.add(TimeDistributed(MaxPooling1D(pool_size=1)))
+    # model.add(TimeDistributed(Conv1D(filters=64, kernel_size=1, activation='relu')))
+    # model.add(TimeDistributed(MaxPooling1D(pool_size=1)))
 
     model.add(Flatten())
 
@@ -355,11 +360,11 @@ def model_ConvLSTM2D_FG(stock):
     model.compile(optimizer='adam', loss='mse')
     # print(model.summary())
     # fit model
-    early_stop = EarlyStopping(monitor='val_loss', patience=5)
+    early_stop = EarlyStopping(monitor='val_loss', patience=100)
     
-    model.fit(X, y, epochs=100, verbose=0,    validation_split=0.05,  callbacks=[early_stop])
+    model.fit(X, y, epochs=1000, verbose=0,    validation_split=0.2,  callbacks=[early_stop])
     
-    model.save('models/' + stock + '-FG-ConvLSTM2D-2y.h5')
+    model.save('models/' + stock + '-FG-ConvLSTM2D-' + interval +'.h5')
     keras.backend.clear_session()
     
     del model
@@ -370,32 +375,30 @@ def plot_model_predictions(stock):
         
     plt.style.use(['ggplot'])
         
-    data = pd.read_csv('data/' + stock + '.csv')
+    data = pd.read_csv('data/' + stock + '-' + interval + '.csv')
     data.index = data['Date']
+    # data = data[data.index >= '2020-05-15']
 
+    df_foreign = load_foreign_stocks(foreign_stocks)
+    
     data = data[['Open', 'High', 'Low', 'Close', 'Volume']]
     data.loc[:,'HighLoad'] = (data['High'] - data['Close']) / data['Close'] * 100.0
     data.loc[:,'Change'] = (data['Close'] - data['Open']) / data['Open'] * 100.0
 
-    
+    # [['HighLoad', 'Change', 'Volume', 'Close']]
 
+    df_foreign = load_foreign_stocks(foreign_stocks) 
 
+    data = pd.concat([data[['HighLoad', 'Change', 'Close']]], axis=1, sort=True)[:-1]
 
-    df_foreign = load_foreign_stocks(foreign_stocks)
-    data = pd.concat([data[['HighLoad', 'Change', 'Volume', 'Low', 'High', 'Close']]], axis=1, sort=True)[:]
-
-    data = data.dropna()
+    data = clean_dataset(data)
     scaler = MinMaxScaler(feature_range=[0,1])
-    # define input sequence
-    scaler_norm = StandardScaler()
     # define input sequence
     dataset = scaler.fit_transform(data.ffill().values)
 
-
-    N_samples = 10
-
     # choose a number of time steps
-    n_steps_in, n_steps_out = 5, 3
+    n_steps_in, n_steps_out = 7, 3
+    N_samples = 7
 
     # convert into input/output
     X, y_complete = split_sequences(dataset, n_steps_in, n_steps_out)
@@ -410,33 +413,18 @@ def plot_model_predictions(stock):
     names = ['Close']
     X_unnorm = scaler.inverse_transform(X[-1])
     X_test = pd.DataFrame(X_unnorm[:, -n_features_out:],columns=names)    
-    X_test['Date'] = data.index[-(n_steps_in+n_steps_out):-n_steps_out]
+    # X_test['Date'] = data.index[-(n_steps_in+n_steps_out):-n_steps_out]
 
 
     y_test = np.reshape(scaler.inverse_transform(y_complete[-1])[:,-n_features_out:], 
     (n_steps_out,n_features_out))
     y_test = pd.DataFrame(y_test, columns=names)
-    y_test['Date'] = data.index[-n_steps_out:]    
-
-    date_end = pd.to_datetime(data.index[-1])
-    days= n_steps_out + 2
-    date_begin = date_end + timedelta(days = days)
-    test_date = pd.DataFrame(pd.date_range(date_end, date_begin), columns=['Date'])
-    test_date['weekday'] = test_date['Date'].dt.strftime('%w').values.astype(int)
-    test_date = pd.to_datetime(test_date['Date'].loc[(test_date['weekday'] != 6) & 
-                                                     (test_date['weekday'] != 0)].reset_index(drop=True).values)
-
-
-    plt.clf()
-    plt.cla()
 
 
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, sharex=True,sharey=False)
 
-    model = load_model('models/' + stock + '-FG-CNN-2y.h5' )
-    yhat = model.predict(X[-N_samples:], verbose=0)
-
-    # print(np.reshape(y[-1], (n_steps_out*n_features_out)), np.reshape(yhat[-1], ( n_steps_out*n_features_out)))
+    model = load_model('models/' + stock + '-FG-CNN-' + interval +'.h5')
+    yhat = model.predict(X[-N_samples:], verbose=0)    
 
     MAE_CNN = mean_absolute_percentage_error(np.reshape(y[-N_samples:], (N_samples*n_steps_out*n_features_out)),
                                              np.reshape(yhat[-N_samples:], (N_samples*n_steps_out*n_features_out)))
@@ -444,41 +432,35 @@ def plot_model_predictions(stock):
     y_pred = np.reshape(yhat[-1], (n_steps_out,n_features_out))
     y_pred = pd.DataFrame(scaler.inverse_transform(np.concatenate([y_complete[-1][:,:-n_features_out], y_pred],
      axis=1))[:,-n_features_out:],columns=names)
-    y_pred['Date'] = data.index[-n_steps_out:]
+    
 
 
     y_future = model.predict(np.reshape(dataset[-n_steps_in:], (1, n_steps_in,n_features_in)))
     y_future = np.reshape(y_future[-1], (n_steps_out,n_features_out))
     y_future = pd.DataFrame(scaler.inverse_transform(np.concatenate([y_complete[-1][:,:-n_features_out], y_future], axis=1))[:,-n_features_out:],columns=names)
-    y_future['Date'] = test_date[1:]
+    
 
 
     df_true = pd.concat([X_test[-5:],y_test],sort=False)
     df_pred = pd.concat([y_pred,y_future],sort=False)
 
-    df_true['Date'] = pd.to_datetime(df_true['Date'])
-    df_pred['Date'] = pd.to_datetime(df_pred['Date'])    
+    # df_true['Date'] = pd.to_datetime(df_true['Date'])
+    # df_pred['Date'] = pd.to_datetime(df_pred['Date'])    
 
 
-    df_true['Date'] = np.array(pd.Series(df_true['Date']).apply(lambda x: x.day).astype(str))
-    df_pred['Date'] = np.array(pd.Series(df_pred['Date']).apply(lambda x: x.day).astype(str))
+    # df_true['Date'] = np.array(pd.Series(df_true['Date']).apply(lambda x: x.day).astype(str))
+    # df_pred['Date'] = np.array(pd.Series(df_pred['Date']).apply(lambda x: x.day).astype(str))
 
 
 
     fig.suptitle(stock +  ' daily prediction. Solid lines = Predicted')
 
-    # ax1.plot( df_true['Date'], df_true['High'], linewidth=2, linestyle='--',color='blue')
-    # ax1.plot(df_true['Date'], df_true['Open'], linewidth=2, linestyle='--',color='yellow')
-    ax1.plot(df_true['Date'], df_true['Close'], markerfacecolor='green',
-         markeredgecolor='green', linewidth=2, marker='.', linestyle='--',color='yellow', label='Real Adj Close')
-    # ax1.plot(df_true['Date'], df_true['Low'], linewidth=2, linestyle='--',color='red')
+    ax1.plot(range(-len(df_true['Close'])+1, 1), df_true['Close'], markerfacecolor='green',
+         markeredgecolor='green', linewidth=2, marker='.', linestyle='--',color='yellow', label='Real Close')
 
-
-    # ax1.plot(df_pred['Date'], df_pred['High'], linewidth=2,marker='^', color='blue', label='High')
-    # ax1.plot(df_pred['Date'], df_pred['Open'], linewidth=2, marker='*', color='yellow', label='Open')
-    ax1.plot(df_pred['Date'], df_pred['Close'], markerfacecolor='white',
-         markeredgecolor='yellow', linewidth=2, marker='*', color='green', label='Predited Adj Close')
-    # ax1.plot(df_pred['Date'], df_pred['Low'], linewidth=2, marker='v', color='red', label='Low')
+    
+    ax1.plot(list(range(-(N_samples - 1),N_samples + 1)), df_pred['Close'], markerfacecolor='white',
+         markeredgecolor='yellow', linewidth=2, marker='*', color='green', label='Predited Close')
 
     ax1.set_title('CNN - MAE: ' + str(round(MAE_CNN, 1)))  
     # ax1.set_xlabel('Days')
@@ -488,7 +470,7 @@ def plot_model_predictions(stock):
     #ax1.legend()
     #ax1.grid()
 
-    model = load_model('models/' + stock + '-FG-LSTM-2y.h5' )
+    model = load_model('models/' + stock + '-FG-LSTM-' + interval +'.h5')
     yhat = model.predict(X[-N_samples:], verbose=0)
     MAE_LSTM = mean_absolute_percentage_error(np.reshape(y[-N_samples:], (N_samples*n_steps_out*n_features_out)),
                                              np.reshape(yhat[-N_samples:], (N_samples*n_steps_out*n_features_out)))
@@ -497,35 +479,23 @@ def plot_model_predictions(stock):
     y_pred = pd.DataFrame(scaler.inverse_transform(np.concatenate([y_complete[-1][:,:-n_features_out], y_pred],
      axis=1))[:,-n_features_out:],columns=names)
 
-    y_pred['Date'] = data.index[-n_steps_out:]
+    
 
     y_future = model.predict(np.reshape(dataset[-n_steps_in:], (1, n_steps_in,n_features_in)))
     y_future = np.reshape(y_future[-1], (n_steps_out,n_features_out))
     y_future = pd.DataFrame(scaler.inverse_transform(np.concatenate([y_complete[-1][:,:-n_features_out], 
     y_future], axis=1))[:,-n_features_out:],columns=names)
-    y_future['Date'] = test_date[1:]
+    
 
     df_true = pd.concat([X_test[-5:],y_test],sort=False)
     df_pred = pd.concat([y_pred,y_future],sort=False)
 
-    df_true['Date'] = pd.to_datetime(df_true['Date'])
-    df_pred['Date'] = pd.to_datetime(df_pred['Date'])    
-
-    df_true['Date'] = np.array(pd.Series(df_true['Date']).apply(lambda x: x.day).astype(str))
-    df_pred['Date'] = np.array(pd.Series(df_pred['Date']).apply(lambda x: x.day).astype(str))
-
-    # ax1.plot( df_true['Date'], df_true['High'], linewidth=2, linestyle='--',color='blue')
-    # ax1.plot(df_true['Date'], df_true['Open'], linewidth=2, linestyle='--',color='yellow')
-    ax2.plot(df_true['Date'], df_true['Close'], markerfacecolor='green',
-         markeredgecolor='green', linewidth=2, marker='.', linestyle='--',color='yellow', label='Real Adj Close')
-    # ax1.plot(df_true['Date'], df_true['Low'], linewidth=2, linestyle='--',color='red')
+    ax2.plot(range(-len(df_true['Close'])+1, 1), df_true['Close'], markerfacecolor='green',
+         markeredgecolor='green', linewidth=2, marker='.', linestyle='--',color='yellow', label='Real Close')
 
 
-    # ax1.plot(df_pred['Date'], df_pred['High'], linewidth=2,marker='^', color='blue', label='High')
-    # ax1.plot(df_pred['Date'], df_pred['Open'], linewidth=2, marker='*', color='yellow', label='Open')
-    ax2.plot(df_pred['Date'], df_pred['Close'], markerfacecolor='white',
-         markeredgecolor='yellow', linewidth=2, marker='*', color='green', label='Predited Adj Close')
-    # ax1.plot(df_pred['Date'], df_pred['Low'], linewidth=2, marker='v', color='red', label='Low')
+    ax2.plot(list(range(-(N_samples - 1),N_samples + 1)), df_pred['Close'], markerfacecolor='white',
+         markeredgecolor='yellow', linewidth=2, marker='*', color='green', label='Predited Close')
 
     ax2.set_title('LSTM - MAE: ' + str(round(MAE_LSTM, 1)))
     # ax2.set_xlabel('Days')
@@ -535,7 +505,7 @@ def plot_model_predictions(stock):
     #ax2.legend()
     #ax2.grid()
 
-    model = load_model('models/' + stock + '-FG-CNN-LSTM-2y.h5' )
+    model = load_model('models/' + stock + '-FG-CNN-LSTM-' + interval +'.h5')
     X = X.reshape(X.shape[0], X.shape[1], X.shape[2], 1)
     yhat = model.predict(X[-N_samples:], verbose=0)
     MAE_CNN_LSTM = mean_absolute_percentage_error(np.reshape(y[-N_samples:], (N_samples*n_steps_out*n_features_out)),
@@ -550,30 +520,19 @@ def plot_model_predictions(stock):
     y_future = model.predict(np.reshape(dataset[-n_steps_in:], (1, n_steps_in,n_features_in, 1)))
     y_future = np.reshape(y_future[-1], (n_steps_out,n_features_out))
     y_future = pd.DataFrame(scaler.inverse_transform(np.concatenate([y_complete[-1][:,:-n_features_out],
-y_future], axis=1))[:,-n_features_out:],columns=names)
-    y_future['Date'] = test_date[1:]
+    y_future], axis=1))[:,-n_features_out:],columns=names)
+    
 
     df_true = pd.concat([X_test[-5:],y_test],sort=False)
     df_pred = pd.concat([y_pred,y_future],sort=False)
 
-    df_true['Date'] = pd.to_datetime(df_true['Date'])
-    df_pred['Date'] = pd.to_datetime(df_pred['Date'])   
-    df_true['Date'] = np.array(pd.Series(df_true['Date']).apply(lambda x: x.day).astype(str))
-    df_pred['Date'] = np.array(pd.Series(df_pred['Date']).apply(lambda x: x.day).astype(str))
+    ax3.plot(range(-len(df_true['Close'])+1, 1), df_true['Close'], markerfacecolor='green',
+         markeredgecolor='green', linewidth=2, marker='.', linestyle='--',color='yellow', label='Real Close')
 
 
-    # ax1.plot( df_true['Date'], df_true['High'], linewidth=2, linestyle='--',color='blue')
-    # ax1.plot(df_true['Date'], df_true['Open'], linewidth=2, linestyle='--',color='yellow')
-    ax3.plot(df_true['Date'], df_true['Close'], markerfacecolor='green',
-         markeredgecolor='green', linewidth=2, marker='.', linestyle='--',color='yellow', label='Real Adj Close')
-    # ax1.plot(df_true['Date'], df_true['Low'], linewidth=2, linestyle='--',color='red')
+    ax3.plot(list(range(-(N_samples - 1),N_samples + 1)), df_pred['Close'], markerfacecolor='white',
+         markeredgecolor='yellow', linewidth=2, marker='*', color='green', label='Predited Close')
 
-
-    # ax1.plot(df_pred['Date'], df_pred['High'], linewidth=2,marker='^', color='blue', label='High')
-    # ax1.plot(df_pred['Date'], df_pred['Open'], linewidth=2, marker='*', color='yellow', label='Open')
-    ax3.plot(df_pred['Date'], df_pred['Close'], markerfacecolor='white',
-         markeredgecolor='yellow', linewidth=2, marker='*', color='green', label='Predited Adj Close')
-    # ax1.plot(df_pred['Date'], df_pred['Low'], linewidth=2, marker='v', color='red', label='Low')
 
     ax3.set_title('CNN-LSTM - MAE: ' + str(round(MAE_CNN_LSTM, 1)))
     # ax3.set_xlabel('Days')
@@ -583,7 +542,7 @@ y_future], axis=1))[:,-n_features_out:],columns=names)
     #ax3.legend()
     #ax3.grid()
 
-    model = load_model('models/' + stock + '-FG-ConvLSTM2D-2y.h5' )
+    model = load_model('models/' + stock + '-FG-ConvLSTM2D-' + interval +'.h5')
     X = X.reshape(X.shape[0], X.shape[1], X.shape[2], 1, 1)
     yhat = model.predict(X[-N_samples:], verbose=0)
     MAE_ConvLSTM = mean_absolute_percentage_error(np.reshape(y[-N_samples:], (N_samples*n_steps_out*n_features_out)),
@@ -599,29 +558,17 @@ y_future], axis=1))[:,-n_features_out:],columns=names)
     y_future = np.reshape(y_future[-1], (n_steps_out,n_features_out))
     y_future = pd.DataFrame(scaler.inverse_transform(np.concatenate([y_complete[-1][:,:-n_features_out],
      y_future], axis=1))[:,-n_features_out:],columns=names)
-    y_future['Date'] = test_date[1:]
+    
 
     df_true = pd.concat([X_test[-5:],y_test],sort=False)
     df_pred = pd.concat([y_pred,y_future],sort=False)
 
-    df_true['Date'] = pd.to_datetime(df_true['Date'])
-    df_pred['Date'] = pd.to_datetime(df_pred['Date'])   
-    df_true['Date'] = np.array(pd.Series(df_true['Date']).apply(lambda x: x.day).astype(str))
-    df_pred['Date'] = np.array(pd.Series(df_pred['Date']).apply(lambda x: x.day).astype(str))
+    ax4.plot(range(-len(df_true['Close'])+1, 1), df_true['Close'], markerfacecolor='green',
+         markeredgecolor='green', linewidth=2, marker='.', linestyle='--',color='yellow', label='Real Close')
 
 
-   # ax1.plot( df_true['Date'], df_true['High'], linewidth=2, linestyle='--',color='blue')
-    # ax1.plot(df_true['Date'], df_true['Open'], linewidth=2, linestyle='--',color='yellow')
-    ax4.plot(df_true['Date'], df_true['Close'], markerfacecolor='green',
-         markeredgecolor='green', linewidth=2, marker='.', linestyle='--',color='yellow', label='Real Adj Close')
-    # ax1.plot(df_true['Date'], df_true['Low'], linewidth=2, linestyle='--',color='red')
-
-
-    # ax1.plot(df_pred['Date'], df_pred['High'], linewidth=2,marker='^', color='blue', label='High')
-    # ax1.plot(df_pred['Date'], df_pred['Open'], linewidth=2, marker='*', color='yellow', label='Open')
-    ax4.plot(df_pred['Date'], df_pred['Close'], markerfacecolor='white',
-         markeredgecolor='yellow', linewidth=2, marker='*', color='green', label='Predited Adj Close')
-    # ax1.plot(df_pred['Date'], df_pred['Low'], linewidth=2, marker='v', color='red', label='Low')
+    ax4.plot(list(range(-(N_samples - 1),N_samples + 1)), df_pred['Close'], markerfacecolor='white',
+         markeredgecolor='yellow', linewidth=2, marker='*', color='green', label='Predited Close')
 
     ax4.set_title('ConvLSTM - MAE: ' + str((round(MAE_ConvLSTM, 1))))
     # ax4.set_xlabel('Days')
@@ -633,7 +580,7 @@ y_future], axis=1))[:,-n_features_out:],columns=names)
 
     handles, labels = ax1.get_legend_handles_labels()
     fig.legend(handles, labels,  loc = 'lower center', ncol=3)
-    plt.savefig('images/' + stock + '-2y.png')
+    plt.savefig('images/' + stock + '-' + interval + '.png')
     
     
     
@@ -641,29 +588,23 @@ y_future], axis=1))[:,-n_features_out:],columns=names)
     return (stock, True)
 
 
-def download_data_stocks(stock):
-    data = pdr.get_data_yahoo(stock)
-    data.to_csv('data/'+ stock + '.csv')
-    return (stock, True)
-
-
-def download_data_stocks_Intraday(stock):
+def download_data_stocks(stock, interval):
     import yfinance as yf
     yf.pdr_override() # <== that's all it takes :-)
 
-    data = pdr.get_data_yahoo(stock, start="2019-01-01", interval='60m')
-    data.to_csv('data/'+ stock + '-H.csv')
+    data = pdr.get_data_yahoo(stock, interval=interval)
+    data.to_csv('data/'+ stock + '-' + interval + '.csv')
     return (stock, True)
 
 
 foreign_stocks = [
             '^BVSP',
-            '^N100',
-            'USDBRL=X',
-            '^NYA',            
+            '^NYA',
             '^IXIC',
-            'LSE.L'
-            
+            'LSE.L',
+            '^N100',
+            '2104.TW',
+            'USDBRL=X'
             ]
 
 young_stocks = ['BIDI3.SA', 'CAML3.SA', 'CNTO3.SA', 'GNDI3.SA', 
@@ -671,30 +612,32 @@ young_stocks = ['BIDI3.SA', 'CAML3.SA', 'CNTO3.SA', 'GNDI3.SA',
                 'NTCO3.SA', 'SAPR11.SA']
 
 
-def show_mape_models(stock):
+def show_mape_models(stock, interval):
 
-    data = pd.read_csv('data/' + stock + '.csv')
+    data = pd.read_csv('data/' + stock + '-' + interval + '.csv')
     data.index = data['Date']
+    # data = data[data.index >= '2020-03-15']
 
     data = data[['Open', 'High', 'Low', 'Close', 'Volume']]
     data.loc[:,'HighLoad'] = (data['High'] - data['Close']) / data['Close'] * 100.0
     data.loc[:,'Change'] = (data['Close'] - data['Open']) / data['Open'] * 100.0
 
-    # [['HighLoad', 'Change', 'Volume', 'Low', 'High', 'Close']]
-
-
+    # [['HighLoad', 'Change', 'Volume', 'Low', 'Close']]
 
     df_foreign = load_foreign_stocks(foreign_stocks)
-    data = pd.concat([data[['HighLoad', 'Change', 'Volume', 'Low', 'High', 'Close']]], axis=1, sort=True)[:]
-    data = data.dropna()
+    data = pd.concat([data[['HighLoad', 'Change', 'Close']]], axis=1, sort=True)[:-1]
+    
+    data = clean_dataset(data)
+
     scaler = MinMaxScaler(feature_range=[0,1])
     # define input sequence
     scaler_norm = StandardScaler()
     # define input sequence
     dataset = scaler.fit_transform(data.ffill().values)
 
+    
     # choose a number of time steps
-    n_steps_in, n_steps_out = 5, 3
+    n_steps_in, n_steps_out = 7, 3
 
     # convert into input/output
     X, y_complete = split_sequences(dataset, n_steps_in, n_steps_out)
@@ -704,38 +647,33 @@ def show_mape_models(stock):
     # the dataset knows the number of features, e.g. 2
     n_features_in = X.shape[2]
     n_features_out = 1
-
     MAPE_ALL = []
     for i in ['CNN', 'LSTM', 'CNN-LSTM', 'ConvLSTM2D']:
-    # for i in ['CNN']:
-        
-        
-        filename = 'models/' + stock + '-FG-' + i + '-2y.h5'
-        model = load_model(filename)
         
 
-        if (i == 'CNN'):            
-            yhat = model.predict(X[-10:])
-        elif(i == 'LSTM'):
-            yhat = model.predict(X[-10:])
-        elif (i == 'CNN-LSTM'):
+        model = load_model('models/' + stock + '-FG-' + i + '-' + interval +'.h5')
+
+        if (i == 'CNN') | (i == 'LSTM'):
+            yhat = model.predict(X[-7:], verbose=0)
+        elif (i == 'CNN-LSTM'): 
             X = X.reshape(X.shape[0], X.shape[1], X.shape[2], 1)
-            yhat = model.predict(X[-10:], verbose=0)
+            yhat = model.predict(X[-7:], verbose=0)
         else:
             X = X.reshape(X.shape[0], X.shape[1], X.shape[2], 1, 1)
-            yhat = model.predict(X[-10:], verbose=0)
+            yhat = model.predict(X[-7:], verbose=0)
 
         # print(np.reshape(y[-1], (n_steps_out*n_features_out)), np.reshape(yhat[-1], ( n_steps_out*n_features_out)))
 
-        MAPE = mean_absolute_percentage_error(np.reshape(y[-10:], (10*n_steps_out*n_features_out)),
-                                    np.reshape(yhat[-10:], (10*n_steps_out*n_features_out)))
+        MAPE = mean_absolute_percentage_error(np.reshape(y[-7:], (7*n_steps_out*n_features_out)),
+                                    np.reshape(yhat[-7:], (7*n_steps_out*n_features_out)))
         
         print(i + ': ' + str(MAPE))
+    
         MAPE_ALL.append(MAPE)
+
     if np.mean(MAPE_ALL) < 5:
         print(np.mean(MAPE_ALL))
         plot_model_predictions(stock)
-    
 
 
 
@@ -749,7 +687,7 @@ stocks = ['CCRO3.SA', 'COGN3.SA', 'CSNA3.SA', 'ECOR3.SA', 'EZTC3.SA', 'LWSA3.SA'
 '''
 
 # pool = Pool(8)
-# var = 0
+var = 0
 # pool.map(download_data_stocks , list(stocks))    
 # pool.map(download_data_stocks, list(foreign_stocks))    
 
@@ -761,23 +699,18 @@ stocks = ['CCRO3.SA', 'COGN3.SA', 'CSNA3.SA', 'ECOR3.SA', 'EZTC3.SA', 'LWSA3.SA'
 
 # print( 'Argument List:', str(sys.argv))
 
-# for stock in foreign_stocks:
-#     print(stock)
-#     download_data_stocks(stock)
-
-
-
 for stock in stocks[int(sys.argv[1]):int(sys.argv[1]) + 5]:
     print(stock)
-    # download_data_stocks(stock)
-    # download_data_stocks_Intraday(stock)
+    for interval in ['5d', '1wk', '1mo']:
+        print(interval)
 
-    #model_conv1_FG(stock)
-    #model_LSTM_FG(stock)
-    #model_CNN_LSTM_2D_FG(stock)
-    #model_ConvLSTM2D_FG(stock)
-    show_mape_models(stock)
-    # plot_model_predictions(stock)
+        download_data_stocks(stock, interval)
+        model_conv1_FG(stock, interval)
+        model_LSTM_FG(stock, interval)
+        model_CNN_LSTM_2D_FG(stock, interval)
+        model_ConvLSTM2D_FG(stock, interval)
+        show_mape_models(stock, interval)
+        # plot_model_predictions(stock)
 
 	
 # 	plt.close('all')
