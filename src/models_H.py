@@ -1,3 +1,6 @@
+import warnings 
+warnings. simplefilter(action='ignore', category=Warning)
+
 
 import sys 
 import time
@@ -10,7 +13,7 @@ import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters
 from pandas_datareader import data as pdr
 from pandas.plotting import register_matplotlib_converters
-register_matplotlib_converters(False)
+
 plt.rcParams.update({'figure.max_open_warning': 0})
 
 register_matplotlib_converters()
@@ -79,6 +82,7 @@ def model_conv1_FG(stock, interval):
     
     data = pd.read_csv('data/' + stock  + '-' + interval + '.csv')
     data.index = data['Date']
+    data['Close'] = np.log(np.array(data['Close'])+ 0.0000000000001)
     # data = data[data.index >= '2019-05-15']
     
     df_foreign = load_foreign_stocks(foreign_stocks) 
@@ -87,12 +91,13 @@ def model_conv1_FG(stock, interval):
     data.loc[:,'HighLoad'] = (data['High'] - data['Close']) / data['Close'] * 100.0
     data.loc[:,'Change'] = (data['Close'] - data['Open']) / data['Open'] * 100.0
 
-    # [['HighLoad', 'Change', 'Volume', 'Close']]
+    
 
     df_foreign = load_foreign_stocks(foreign_stocks) 
 
     
-    data = pd.concat([data[['HighLoad', 'Change', 'Close']]], axis=1, sort=True)[:-7]
+    
+    data = pd.concat([data[['Close']]], axis=1, sort=True)[:-7]
     
     data = clean_dataset(data)
     
@@ -101,7 +106,7 @@ def model_conv1_FG(stock, interval):
     dataset = scaler.fit_transform(data.ffill().values)
 
     # choose a number of time steps
-    n_steps_in, n_steps_out = 7, 3
+    n_steps_in, n_steps_out = 5, 3
     
     # convert into input/output
     X, y = split_sequences(dataset, n_steps_in, n_steps_out)
@@ -124,8 +129,8 @@ def model_conv1_FG(stock, interval):
     
     
     model.add(Conv1D(filters=64, kernel_size=3, activation='relu'))    
-    model.add(Dropout(0.5))
-    model.add(MaxPooling1D())
+    # model.add(Dropout(0.5))
+    # model.add(MaxPooling1D())
     
     
     model.add(Flatten())
@@ -151,6 +156,7 @@ def model_LSTM_FG(stock, interval):
     
     data = pd.read_csv('data/' + stock  + '-' + interval + '.csv')
     data.index = data['Date']
+    data['Close'] = np.log(np.array(data['Close'])+ 0.0000000000001)
     # data = data[data.index >= '2019-05-15']
 
     df_foreign = load_foreign_stocks(foreign_stocks) 
@@ -159,11 +165,11 @@ def model_LSTM_FG(stock, interval):
     data.loc[:,'HighLoad'] = (data['High'] - data['Close']) / data['Close'] * 100.0
     data.loc[:,'Change'] = (data['Close'] - data['Open']) / data['Open'] * 100.0
 
-    # [['HighLoad', 'Change', 'Volume', 'Close']]
+    # [['Close']]
 
     df_foreign = load_foreign_stocks(foreign_stocks) 
 
-    data = pd.concat([data[['HighLoad', 'Change', 'Close']]], axis=1, sort=True)[:-7]
+    data = pd.concat([data[['Close']]], axis=1, sort=True)[:-7]
 
     
     data = clean_dataset(data)
@@ -173,7 +179,7 @@ def model_LSTM_FG(stock, interval):
     dataset = scaler.fit_transform(data.ffill().values)
 
     # choose a number of time steps
-    n_steps_in, n_steps_out = 7, 3
+    n_steps_in, n_steps_out = 5, 3
     # convert into input/output
     X, y = split_sequences(dataset, n_steps_in, n_steps_out)
                            
@@ -220,6 +226,7 @@ def model_CNN_LSTM_2D_FG(stock, interval):
     
     data = pd.read_csv('data/' + stock  + '-' + interval + '.csv')
     data.index = data['Date']
+    data['Close'] = np.log(np.array(data['Close'])+ 0.0000000000001)
     # data = data[data.index >= '2019-05-15']
 
     df_foreign = load_foreign_stocks(foreign_stocks) 
@@ -228,11 +235,11 @@ def model_CNN_LSTM_2D_FG(stock, interval):
     data.loc[:,'HighLoad'] = (data['High'] - data['Close']) / data['Close'] * 100.0
     data.loc[:,'Change'] = (data['Close'] - data['Open']) / data['Open'] * 100.0
 
-    # [['HighLoad', 'Change', 'Volume', 'Close']]
+    # [['Close']]
 
     df_foreign = load_foreign_stocks(foreign_stocks) 
 
-    data = pd.concat([data[['HighLoad', 'Change', 'Close']]], axis=1, sort=True)[:-7]
+    data = pd.concat([data[['Close']]], axis=1, sort=True)[:-7]
 
     data = clean_dataset(data)
     
@@ -241,7 +248,7 @@ def model_CNN_LSTM_2D_FG(stock, interval):
     dataset = scaler.fit_transform(data.ffill().values)
 
     # choose a number of time steps
-    n_steps_in, n_steps_out = 7, 3
+    n_steps_in, n_steps_out = 5, 3
     # convert into input/output
     X, y_complete = split_sequences(dataset, n_steps_in, n_steps_out)
 
@@ -261,11 +268,11 @@ def model_CNN_LSTM_2D_FG(stock, interval):
     model.add(TimeDistributed(Conv1D(filters=64, kernel_size=1, activation='relu'), 
                               input_shape=(n_steps_in, n_features_in, 1)))
     
-    model.add(TimeDistributed(Conv1D(filters=64, kernel_size=2, activation='relu')))                            
+    # model.add(TimeDistributed(Conv1D(filters=64, kernel_size=2, activation='relu')))                            
     # model.add(TimeDistributed(Conv1D(filters=64, kernel_size=2, activation='relu')))
     # model.add(TimeDistributed(Conv1D(filters=64, kernel_size=2, activation='relu')))
     
-    model.add(TimeDistributed(MaxPooling1D(pool_size=2)))
+    # model.add(TimeDistributed(MaxPooling1D(pool_size=2)))
     # model.add(TimeDistributed(Conv1D(filters=64, kernel_size=1, activation='relu')))
     # model.add(TimeDistributed(MaxPooling1D(pool_size=2)))
     
@@ -298,6 +305,7 @@ def model_ConvLSTM2D_FG(stock, interval):
     
     data = pd.read_csv('data/' + stock  + '-' + interval + '.csv')
     data.index = data['Date']
+    data['Close'] = np.log(np.array(data['Close'])+ 0.0000000000001)
     # data = data[data.index >= '2019-05-15']
 
     df_foreign = load_foreign_stocks(foreign_stocks) 
@@ -306,11 +314,11 @@ def model_ConvLSTM2D_FG(stock, interval):
     data.loc[:,'HighLoad'] = (data['High'] - data['Close']) / data['Close'] * 100.0
     data.loc[:,'Change'] = (data['Close'] - data['Open']) / data['Open'] * 100.0
 
-    # [['HighLoad', 'Change', 'Volume', 'Close']]
+    # [['Close']]
 
     df_foreign = load_foreign_stocks(foreign_stocks)
 
-    data = pd.concat([data[['HighLoad', 'Change', 'Close']]], axis=1, sort=True)[:-7]
+    data = pd.concat([data[['Close']]], axis=1, sort=True)[:-7]
 
     data = clean_dataset(data)
 
@@ -320,7 +328,7 @@ def model_ConvLSTM2D_FG(stock, interval):
     dataset = scaler.fit_transform(data.ffill().values)
 	
     # choose a number of time steps
-    n_steps_in, n_steps_out = 7, 3
+    n_steps_in, n_steps_out = 5, 3
     # convert into input/output
     X, y_complete = split_sequences(dataset, n_steps_in, n_steps_out)
 
@@ -377,6 +385,7 @@ def plot_model_predictions(stock):
         
     data = pd.read_csv('data/' + stock + '-' + interval + '.csv')
     data.index = data['Date']
+    data['Close'] = np.log(np.array(data['Close'])+ 0.0000000000001)
     # data = data[data.index >= '2020-05-15']
 
     df_foreign = load_foreign_stocks(foreign_stocks)
@@ -385,11 +394,11 @@ def plot_model_predictions(stock):
     data.loc[:,'HighLoad'] = (data['High'] - data['Close']) / data['Close'] * 100.0
     data.loc[:,'Change'] = (data['Close'] - data['Open']) / data['Open'] * 100.0
 
-    # [['HighLoad', 'Change', 'Volume', 'Close']]
+    # [['Close']]
 
     df_foreign = load_foreign_stocks(foreign_stocks) 
 
-    data = pd.concat([data[['HighLoad', 'Change', 'Close']]], axis=1, sort=True)[:-1]
+    data = pd.concat([data[['Close']]], axis=1, sort=True)[:-1]
 
     data = clean_dataset(data)
     scaler = MinMaxScaler(feature_range=[0,1])
@@ -397,7 +406,7 @@ def plot_model_predictions(stock):
     dataset = scaler.fit_transform(data.ffill().values)
 
     # choose a number of time steps
-    n_steps_in, n_steps_out = 7, 3
+    n_steps_in, n_steps_out = 5, 3
     N_samples = 7
 
     # convert into input/output
@@ -616,6 +625,7 @@ def show_mape_models(stock, interval):
 
     data = pd.read_csv('data/' + stock + '-' + interval + '.csv')
     data.index = data['Date']
+    data['Close'] = np.log(np.array(data['Close'])+ 0.0000000000001)
     # data = data[data.index >= '2020-03-15']
 
     data = data[['Open', 'High', 'Low', 'Close', 'Volume']]
@@ -625,7 +635,7 @@ def show_mape_models(stock, interval):
     # [['HighLoad', 'Change', 'Volume', 'Low', 'Close']]
 
     df_foreign = load_foreign_stocks(foreign_stocks)
-    data = pd.concat([data[['HighLoad', 'Change', 'Close']]], axis=1, sort=True)[:-1]
+    data = pd.concat([data[['Close']]], axis=1, sort=True)[:-1]
     
     data = clean_dataset(data)
 
@@ -637,7 +647,7 @@ def show_mape_models(stock, interval):
 
     
     # choose a number of time steps
-    n_steps_in, n_steps_out = 7, 3
+    n_steps_in, n_steps_out = 5, 3
 
     # convert into input/output
     X, y_complete = split_sequences(dataset, n_steps_in, n_steps_out)
@@ -701,10 +711,10 @@ var = 0
 
 for stock in stocks[int(sys.argv[1]):int(sys.argv[1]) + 5]:
     print(stock)
-    for interval in ['5d', '1wk', '1mo']:
+    for interval in ['5d', '1wk']:
         print(interval)
 
-        download_data_stocks(stock, interval)
+        # download_data_stocks(stock, interval)
         model_conv1_FG(stock, interval)
         model_LSTM_FG(stock, interval)
         model_CNN_LSTM_2D_FG(stock, interval)
