@@ -106,7 +106,7 @@ def model_conv1_FG(stock, interval):
     dataset = scaler.fit_transform(data.ffill().values)
 
     # choose a number of time steps
-    n_steps_in, n_steps_out = 5, 3
+    n_steps_in, n_steps_out = 7, 5
     
     # convert into input/output
     X, y = split_sequences(dataset, n_steps_in, n_steps_out)
@@ -179,7 +179,7 @@ def model_LSTM_FG(stock, interval):
     dataset = scaler.fit_transform(data.ffill().values)
 
     # choose a number of time steps
-    n_steps_in, n_steps_out = 5, 3
+    n_steps_in, n_steps_out = 7, 5
     # convert into input/output
     X, y = split_sequences(dataset, n_steps_in, n_steps_out)
                            
@@ -248,7 +248,7 @@ def model_CNN_LSTM_2D_FG(stock, interval):
     dataset = scaler.fit_transform(data.ffill().values)
 
     # choose a number of time steps
-    n_steps_in, n_steps_out = 5, 3
+    n_steps_in, n_steps_out = 7, 5
     # convert into input/output
     X, y_complete = split_sequences(dataset, n_steps_in, n_steps_out)
 
@@ -328,7 +328,7 @@ def model_ConvLSTM2D_FG(stock, interval):
     dataset = scaler.fit_transform(data.ffill().values)
 	
     # choose a number of time steps
-    n_steps_in, n_steps_out = 5, 3
+    n_steps_in, n_steps_out = 7, 5
     # convert into input/output
     X, y_complete = split_sequences(dataset, n_steps_in, n_steps_out)
 
@@ -406,7 +406,7 @@ def plot_model_predictions(stock):
     dataset = scaler.fit_transform(data.ffill().values)
 
     # choose a number of time steps
-    n_steps_in, n_steps_out = 5, 3
+    n_steps_in, n_steps_out = 7, 5
     N_samples = 7
 
     # convert into input/output
@@ -647,7 +647,7 @@ def show_mape_models(stock, interval):
 
     
     # choose a number of time steps
-    n_steps_in, n_steps_out = 5, 3
+    n_steps_in, n_steps_out = 7, 5
 
     # convert into input/output
     X, y_complete = split_sequences(dataset, n_steps_in, n_steps_out)
@@ -683,7 +683,7 @@ def show_mape_models(stock, interval):
 
     if np.mean(MAPE_ALL) < 5:
         print(np.mean(MAPE_ALL))
-        plot_model_predictions(stock)
+        # plot_model_predictions(stock)
 
 
 
@@ -711,7 +711,7 @@ var = 0
 
 for stock in stocks[int(sys.argv[1]):int(sys.argv[1]) + 5]:
     print(stock)
-    for interval in ['5d', '1wk']:
+    for interval in ['1d', '5d', '1wk']:
         print(interval)
 
         # download_data_stocks(stock, interval)
