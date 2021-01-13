@@ -43,7 +43,9 @@ ML_Techniques = ['conv', 'LSTM', 'BidirectionalLSTM', 'convLSTM1D', 'convLSTM2D'
 
 
 for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_codigo)]:
+    
     polarity = retrieving_tweets_polarity(stock)
+    print(stock, polarity)
     
     all_polarity.append([stock, polarity])
     
