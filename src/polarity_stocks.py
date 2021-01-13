@@ -37,10 +37,7 @@ def retrieving_tweets_polarity(symbol):
         global_polarity = global_polarity / len(tweet_list)
     return global_polarity
 
-n_steps_in, n_steps_out = 5, 1
 
-interval='1wk'
-samples_test = 1
 all_polarity = []
 ML_Techniques = ['conv', 'LSTM', 'BidirectionalLSTM', 'convLSTM1D', 'convLSTM2D']     
 
