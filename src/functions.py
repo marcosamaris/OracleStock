@@ -8,14 +8,9 @@ from datetime import timedelta
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from pandas.plotting import register_matplotlib_converters
-from pandas_datareader import data as pdr
-from pandas.plotting import register_matplotlib_converters
-
-import constants_tweet as ct
-from Tweet import Tweet
-import tweepy
-from textblob import TextBlob
+# from pandas.plotting import register_matplotlib_converters
+# from pandas_datareader import data as pdr
+# from pandas.plotting import register_matplotlib_converters
 
 # import keras
 from tensorflow import keras
@@ -30,7 +25,7 @@ from keras.layers import MaxPooling1D
 from keras.layers import Conv1D, Dense, LSTM, RepeatVector, TimeDistributed, ConvLSTM2D, \
                         BatchNormalization, Dropout, MaxPooling2D, UpSampling1D, Bidirectional
 
-from keras.optimizers import Adadelta, RMSprop, Adam, Adagrad
+from keras.optimizers import Adadelta, RMSprop, Adam, Adagrad, Adamax, Nadam
 
 from keras.callbacks import CSVLogger, EarlyStopping
 import plotnine as p9
@@ -40,9 +35,13 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 from multiprocessing import Pool
 
 var_patience = 25
-opt = Adagrad()
+
+var_batch_size = 3
 
 
+def mean_absolute_percentage_error(y_true, y_pred): 
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
 def check_stock_symbol(flag=False, companies_file='companylist.csv'):
     df = pd.read_csv(companies_file, usecols=[0])
@@ -62,26 +61,12 @@ def clean_dataset(df):
     indices_to_keep = ~df.isin([np.nan, np.inf, -np.inf]).any(1)
     return df[indices_to_keep].astype(np.float64)
 
-def get_download_data(symbol, from_date, interval):
-    import yfinance as yf
-    yf.pdr_override() # <== that's all it takes :-)
-
-    data = yf.download(symbol, interval=interval, rounding=True, start=from_date)
-    df = pd.DataFrame(data=data)
-
-    df = df[['Open', 'High', 'Low', 'Close', 'Volume']]
-    df['HighLoad'] = (df['High'] - df['Close']) / df['Close'] * 100.0
-    df['Change'] = (df['Close'] - df['Open']) / df['Open'] * 100.0
-
-    df = clean_dataset(df)
-    return df
-
-
 def get_stock_data(stock, interval):
 
-    data = pd.read_csv('data/' + stock  + '-' + interval + '.csv')
+    df = pd.read_csv('data/' + stock  + '-' + interval + '.csv')
     
-    df = pd.DataFrame(data=data)
+    df['HighLoad'] = (df['High'] - df['Close']) / df['Close'] * 100.0
+    df['Change'] = (df['Close'] - df['Open']) / df['Open'] * 100.0
 
     return df
     
@@ -165,30 +150,20 @@ def forecast_plot(predictions, n_steps_out):
     plt.savefig('../OracleStock/images/' + stock + '-twit' + '.png')
 
 
-def retrieving_tweets_polarity(symbol):
-    import nltk
+
+
+def predictions_max_index(predictions, n_steps_out):
+    gain_pred, index_maximo_pred = 0, 0
     
-#     nltk.download('punkt')
-    auth = tweepy.OAuthHandler(ct.consumer_key, ct.consumer_secret)
-    auth.set_access_token(ct.access_token, ct.access_token_secret)
-    user = tweepy.API(auth, wait_on_rate_limit=True)
+    if predictions[-n_steps_out-1] < np.max(predictions[-n_steps_out:]):
+        
+        actual_price = predictions[-n_steps_out-1]
+        maximo_pred = np.max(predictions[-n_steps_out:])  
+        index_maximo_pred = np.argmax(predictions[-n_steps_out:])
+        gain_pred = ((maximo_pred - actual_price)/actual_price)*100
+            
+    return (gain_pred, index_maximo_pred)
 
-    tweets = tweepy.Cursor(user.search, q=str(symbol), tweet_mode='extended', lang='pt').items(ct.num_of_tweets)
-
-    tweet_list = []
-    global_polarity = 0
-    for tweet in tweets:
-        tw = tweet.full_text
-        blob = TextBlob(tw)
-        polarity = 0
-        for sentence in blob.sentences:
-            polarity += sentence.sentiment.polarity
-            global_polarity += sentence.sentiment.polarity
-        tweet_list.append(Tweet(tw, polarity))
-
-    if len(tweet_list) > 0:
-        global_polarity = global_polarity / len(tweet_list)
-    return global_polarity
 
 
 def recommending(predictions, n_steps_out, global_polarity, symbol, accuracy, ML_tech):
@@ -212,6 +187,19 @@ def mean_absolute_percentage_error(y_true, y_pred):
     y_true, y_pred = np.array(y_true), np.array(y_pred)
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
+def data_grouped_foreign_stock(foreign_stocks, interval):
+
+    dfm = pd.DataFrame()
+    for stock_foeign in foreign_stocks:    
+        dataframe = pd.read_csv('./data/' + stock_foeign  + '-' + interval + '.csv')
+        dataframe['Stock'] = stock_foeign
+        
+        df2 = dataframe[['Date', 'Stock', 'Adj Close']]
+        dfm = pd.concat([dfm, df2], axis=0)
+        
+    dfm.index = pd.to_datetime(dfm['Date'])
+    datagrouped = dfm[['Stock', 'Adj Close']].groupby([pd.Grouper(freq='1d'), 'Stock'])['Adj Close'].mean().unstack()
+    return datagrouped
 
 # split a multivariate sequence into samples
 def split_sequences(sequences, n_steps_in, n_steps_out):
@@ -289,16 +277,18 @@ def predict_BidirectionalLSTM(stock, X, interval, n_steps_in):
     
 
     
-def plot_bar_all_predictions(data, filenamePlot):
+def plot_bar_predictions(data, filenamePlot, x, y, facet,plot_size):
     # dados = dados.loc[dados['Gain'] < 25]
 
-    var_plot_bar_all_predictions = p9.ggplot(data, p9.aes(x='ML', y='Gain')) +\
+    var_plot_bar_all_predictions = p9.ggplot(data, p9.aes(x=x, y=y)) +\
       p9.geom_bar(stat='identity') +\
-      p9.geom_text(p9.aes(label='Gain'),size=7, va='bottom') +\
-      p9.facet_wrap('Name') +\
-      p9.theme(axis_text_x = p9.element_text(angle=90, size =7.5 )) 
+      p9.geom_text(p9.aes(label=y),size=7, va='bottom') +\
+      p9.facet_wrap(facet) +\
+      p9.scales.scale_y_log10() +\
+      p9.theme(axis_text_x = p9.element_text(angle=90, size =7.5 )) +\
+      p9.theme(subplots_adjust={'wspace': 0.25})
 
-    p9.ggsave(var_plot_bar_all_predictions, 'images/result_Bar' + filenamePlot + '.png',height=10, width=10, units = 'in', dpi=300)
+    p9.ggsave(var_plot_bar_all_predictions, 'images/plot_Bar_' + filenamePlot + '.png',height=plot_size, width=plot_size, units = 'in', dpi=300)
     return var_plot_bar_all_predictions
 
 
@@ -360,7 +350,8 @@ def model_conv1D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, u
         model.add(Flatten())
         model.add(Dense(10, activation='relu'))
         
-        model.add(Dense(n_output)) 
+        model.add(Dense(n_output))
+        opt = Adam()
 
         model.compile(optimizer=opt, loss='mse')
 
@@ -371,7 +362,7 @@ def model_conv1D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, u
         csv_logger = CSVLogger(logdir,separator=",",append=True)    
 
         # fit model
-        model.fit(X, y, epochs=epochs, verbose=verbose,     validation_split=0.1, batch_size=1,  callbacks=[early_stop, csv_logger])
+        model.fit(X, y, epochs=epochs, verbose=verbose,      batch_size=var_batch_size, validation_split=0.1,   callbacks=[early_stop, csv_logger])
 
         if save:
             model.save(filename)
@@ -400,6 +391,7 @@ def model_LSTM(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, upd
         model.add(LSTM(32, activation='relu', return_sequences=True))
         model.add(TimeDistributed(Dense(10, activation='relu')))
         model.add(TimeDistributed(Dense(n_features_out)))
+        opt = Adam()
         model.compile(optimizer=opt, loss='mse')
 
         early_stop = EarlyStopping(monitor='val_loss', patience=var_patience)    
@@ -409,7 +401,7 @@ def model_LSTM(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, upd
         csv_logger = CSVLogger(logdir,separator=",",append=True)    
 
         # fit model
-        model.fit(X, y, epochs=epochs, verbose=verbose,     validation_split=0.1, batch_size=1,  callbacks=[early_stop, csv_logger])
+        model.fit(X, y, epochs=epochs, verbose=verbose,      batch_size=var_batch_size, validation_split=0.1,   callbacks=[early_stop, csv_logger])
 
         if save:
             model.save(filename)
@@ -433,6 +425,7 @@ def model_BidirectionalLSTM(stock, X, y, interval, n_steps_in, n_steps_out, epoc
         model.add(Bidirectional(LSTM(50, activation='relu'), input_shape=(n_steps_in, n_features_in)))
         
         model.add(Dense(n_steps_out))
+        opt = Adam()
         
         model.compile(optimizer=opt, loss='mse')
         
@@ -443,7 +436,7 @@ def model_BidirectionalLSTM(stock, X, y, interval, n_steps_in, n_steps_out, epoc
         csv_logger = CSVLogger(logdir,separator=",",append=True)    
 
         # fit model
-        model.fit(X, y, epochs=epochs, verbose=verbose,     validation_split=0.1, batch_size=1,  callbacks=[early_stop, csv_logger])
+        model.fit(X, y, epochs=epochs, verbose=verbose,      batch_size=var_batch_size, validation_split=0.1,   callbacks=[early_stop, csv_logger])
 
         if save:
             model.save(filename)
@@ -479,6 +472,7 @@ def model_convLSTM1D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, sav
         model.add(LSTM(10, activation='relu'))
 
         model.add(Dense(n_output))
+        opt = Adam()
 
         model.compile(optimizer=opt, loss='mse')
         early_stop = EarlyStopping(monitor='val_loss', patience=var_patience)    
@@ -488,7 +482,7 @@ def model_convLSTM1D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, sav
         csv_logger = CSVLogger(logdir,separator=",",append=True)    
 
         # fit model
-        model.fit(X, y, epochs=epochs, verbose=verbose,     validation_split=0.1, batch_size=1,  callbacks=[early_stop, csv_logger])
+        model.fit(X, y, epochs=epochs, verbose=verbose,      batch_size=var_batch_size, validation_split=0.1,   callbacks=[early_stop, csv_logger])
 
         if save:
             model.save(filename)
@@ -533,6 +527,7 @@ def model_ConvLSTM2D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, sav
         model.add(Dense(10, activation='relu'))
 
         model.add(Dense(n_features_out))
+        opt = Adam()
 
         model.compile(optimizer=opt, loss='mse')
         early_stop = EarlyStopping(monitor='val_loss', patience=var_patience)    
@@ -542,7 +537,7 @@ def model_ConvLSTM2D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, sav
         csv_logger = CSVLogger(logdir,separator=",",append=True)    
 
         # fit model
-        model.fit(X, y, epochs=epochs, verbose=verbose,     validation_split=0.1, batch_size=1,  callbacks=[early_stop, csv_logger])
+        model.fit(X, y, epochs=epochs, verbose=verbose,      batch_size=var_batch_size, validation_split=0.1,   callbacks=[early_stop, csv_logger])
 
         if save:
             model.save(filename)

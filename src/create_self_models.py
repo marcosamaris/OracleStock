@@ -25,22 +25,19 @@ epochs = 1000
 verbose=0
 save = False
 update = False
+samples_test = 5
 
-
-# interval='1d'
 interval='1wk'
 
 
-all_result = []
 for stock in stocks[int(sys.argv[1]):int(sys.argv[1]) + len(stocks)]:
     print(stock)
     (flag, symbol) = (True, stock)
     if flag:
         
-        dataframe = DLmodels.get_stock_data(symbol, interval)
-        
+        dataframe = DLmodels.get_stock_data(symbol, interval)        
         dataframe = dataframe[['HighLoad', 'Change', 'Volume', 'Close']]
-        
+               
         scaler = StandardScaler()
         dataset = scaler.fit_transform(dataframe.ffill().values)
 
@@ -49,15 +46,12 @@ for stock in stocks[int(sys.argv[1]):int(sys.argv[1]) + len(stocks)]:
         scaler_filename = 'scalers/' + stock + '-' + interval + '.save'        
         pickle.dump(scaler, open(scaler_filename, 'wb'))
         
-        X, y = DLmodels.split_sequences(dataset[:-5], n_steps_in, n_steps_out)
-        
-        n_features = X.shape[2]
-        
+        X, y = DLmodels.split_sequences(dataset[:-samples_test], n_steps_in, n_steps_out)        
+        n_features = X.shape[2]        
         y = y[:,:,-1:]
         
-        stock, model = DLmodels.model_conv1D(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
-        
         stock, model = DLmodels.model_LSTM(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+        
         stock, model = DLmodels.model_BidirectionalLSTM(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
         stock, model = DLmodels.model_convLSTM1D(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)

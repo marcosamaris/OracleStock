@@ -1,10 +1,6 @@
-#Get started with Twitter APIs and tools
-#Apply for access https://developer.twitter.com/en/apply-for-access
-
-
-consumer_key = 'TYPE HERE YOUR TWEETER CONSUMER KEY'
-consumer_secret = 'TYPE HERE YOUR TWEETER CONSUMER SECRET'
-access_token = 'TYPE HERE YOUR TWEETER ACCESS TOKEN'
-access_token_secret = 'TYPE HERE YOUR TWEETER ACCESS TOKEN SECRET'
+consumer_key = 'lsIoq5RQF3gAbyePBjqY9OmVH'
+consumer_secret = 'Jv6djJnDGBYUhkmPCSHbnkp3PNNVv3pS9Y8ZRK7EaNEy96Qwbc'
+access_token = '81228854-VrCQYw7N2xPB4YFbYssCR0ghni1NsPF7coEcp5yBE'
+access_token_secret = 'oiRxql6q1xUiIEdU9wLwIv4GWMtDIyY5NiX0R6yy5bfCu'
 
 num_of_tweets = int(1000)

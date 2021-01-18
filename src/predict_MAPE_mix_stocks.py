@@ -10,15 +10,15 @@ import functions as DLmodels
 
 n_steps_in, n_steps_out = 3, 3
 
-interval='1d'
 samples_test = 15
-all_MAPE = []
+
 ML_Techniques = ['LSTM', 'BidirectionalLSTM', 'convLSTM1D', 'convLSTM2D']     
+interval='1d'
 
 datagrouped = DLmodels.data_grouped_foreign_stock(cs.foreign_stocks, interval)
 
-
-for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_codigo[:55])]:
+all_MAPE = []
+for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_codigo)]:
     print(stock)
     (flag, symbol) = (True, stock)
     if flag:
@@ -66,7 +66,7 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
         
             
             MAPE = DLmodels.mean_absolute_percentage_error(np.reshape(y[-samples_test:], (samples_test*n_steps_out,)), np.reshape(predictions, (samples_test*n_steps_out,)))
-            print(MAPE)
+            
             
             all_MAPE.append([stock, ML_tech, np.around(MAPE,1), n_steps_in, n_steps_out, interval, samples_test])
        
