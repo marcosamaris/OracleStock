@@ -1,5 +1,5 @@
-import src.functions as DLmodels
-import src.constanst_stocks as cs
+import functions as DLmodels
+import constants_stocks as cs
 import math
 import sys
 
@@ -20,7 +20,7 @@ import pickle
 
 style.use('ggplot')
 
-n_steps_in, n_steps_out = 5, 1
+n_steps_in, n_steps_out = 7, 1
 epochs = 1000
 verbose=0
 save = False
@@ -30,13 +30,13 @@ samples_test = 5
 interval='1wk'
 
 
-for stock in stocks[int(sys.argv[1]):int(sys.argv[1]) + len(stocks)]:
+for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_codigo)]:
     print(stock)
     (flag, symbol) = (True, stock)
     if flag:
         
         dataframe = DLmodels.get_stock_data(symbol, interval)        
-        dataframe = dataframe[['HighLoad', 'Change', 'Volume', 'Close']]
+        dataframe = dataframe[['Open', 'High', 'Low', 'Close', 'Volume', 'HighLoad', 'Change', 'Adj Close']]
                
         scaler = StandardScaler()
         dataset = scaler.fit_transform(dataframe.ffill().values)

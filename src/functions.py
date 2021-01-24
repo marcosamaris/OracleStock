@@ -351,9 +351,9 @@ def model_conv1D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, u
         model.add(Dense(10, activation='relu'))
         
         model.add(Dense(n_output))
-        opt = Adam()
+        opt = 'adam'
 
-        model.compile(optimizer=opt, loss='mse')
+        model.compile(optimizer=opt, loss='mean_absolute_error', metrics=['mean_absolute_error'])
 
         early_stop = EarlyStopping(monitor='val_loss', patience=var_patience)    
         logdir = 'logs/' + stock + '-Conv1D-' + interval + '-' + str(n_steps_in) +'-'+ str(n_steps_out) +'.log'
@@ -391,8 +391,8 @@ def model_LSTM(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, upd
         model.add(LSTM(32, activation='relu', return_sequences=True))
         model.add(TimeDistributed(Dense(10, activation='relu')))
         model.add(TimeDistributed(Dense(n_features_out)))
-        opt = Adam()
-        model.compile(optimizer=opt, loss='mse')
+        opt = 'adam'
+        model.compile(optimizer=opt, loss='mean_absolute_error', metrics=['mean_absolute_error'])
 
         early_stop = EarlyStopping(monitor='val_loss', patience=var_patience)    
         logdir = 'logs/' + stock + '-LSTM-' + interval + '-' + str(n_steps_in) +'-'+ str(n_steps_out) +'.log'
@@ -425,9 +425,9 @@ def model_BidirectionalLSTM(stock, X, y, interval, n_steps_in, n_steps_out, epoc
         model.add(Bidirectional(LSTM(50, activation='relu'), input_shape=(n_steps_in, n_features_in)))
         
         model.add(Dense(n_steps_out))
-        opt = Adam()
+        opt = 'adam'
         
-        model.compile(optimizer=opt, loss='mse')
+        model.compile(optimizer=opt, loss='mean_absolute_error', metrics=['mean_absolute_error'])
         
         early_stop = EarlyStopping(monitor='val_loss', patience=var_patience)    
         logdir = 'logs/' + stock + '-BidirectionalLSTM-' + interval + '-' + str(n_steps_in) +'-'+ str(n_steps_out) +'.log'
@@ -472,9 +472,9 @@ def model_convLSTM1D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, sav
         model.add(LSTM(10, activation='relu'))
 
         model.add(Dense(n_output))
-        opt = Adam()
+        opt = 'adam'
 
-        model.compile(optimizer=opt, loss='mse')
+        model.compile(optimizer=opt, loss='mean_absolute_error', metrics=['mean_absolute_error'])
         early_stop = EarlyStopping(monitor='val_loss', patience=var_patience)    
         logdir = 'logs/' + stock + '-ConvLSTM1D-' + interval + '-' + str(n_steps_in) +'-'+ str(n_steps_out) +'.log'
 
@@ -527,9 +527,9 @@ def model_ConvLSTM2D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, sav
         model.add(Dense(10, activation='relu'))
 
         model.add(Dense(n_features_out))
-        opt = Adam()
+        opt = 'adam'
 
-        model.compile(optimizer=opt, loss='mse')
+        model.compile(optimizer=opt, loss='mean_absolute_error', metrics=['mean_absolute_error'])
         early_stop = EarlyStopping(monitor='val_loss', patience=var_patience)    
         logdir = 'logs/' + stock + '-ConvLSTM2D-' + interval + '-' + str(n_steps_in) +'-'+ str(n_steps_out) +'.log'
 

@@ -11,7 +11,7 @@ def get_download_data(symbol, from_date, interval):
     data = yf.download(symbol, interval=interval, rounding=True, start=from_date)
     return data
 
-years = 3
+years = 7
 actual_date = dt.date.today()
 past_date = actual_date - dt.timedelta(days=365*years)
 
