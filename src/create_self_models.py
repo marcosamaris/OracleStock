@@ -23,8 +23,8 @@ style.use('ggplot')
 n_steps_in, n_steps_out = 7, 1
 epochs = 1000
 verbose=0
-save = False
-update = False
+save = True
+update = True
 samples_test = 5
 
 interval='1wk'
@@ -50,10 +50,10 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
         n_features = X.shape[2]        
         y = y[:,:,-1:]
         
-        stock, model = DLmodels.model_LSTM(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+        DLmodels.model_LSTM(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
         
-        stock, model = DLmodels.model_BidirectionalLSTM(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+        DLmodels.model_BidirectionalLSTM(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-        stock, model = DLmodels.model_convLSTM1D(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+        DLmodels.model_convLSTM1D(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
             
-        stock, model = DLmodels.model_ConvLSTM2D(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+        DLmodels.model_ConvLSTM2D(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)

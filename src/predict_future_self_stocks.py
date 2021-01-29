@@ -8,7 +8,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import pickle
 import functions as DLmodels
 
-n_steps_in, n_steps_out = 5, 1
+n_steps_in, n_steps_out = 7, 1
 
 interval='1wk'
 samples_test = 1
@@ -23,7 +23,7 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
         
         dataframe = DLmodels.get_stock_data(symbol, interval)
         
-        dataframe = dataframe[['HighLoad', 'Change', 'Volume', 'Close']]
+        dataframe = dataframe[['Open', 'High', 'Low', 'Close', 'Volume', 'HighLoad', 'Change', 'Adj Close']]
         
         dataframe = DLmodels.clean_dataset(dataframe)
         scaler = StandardScaler()
@@ -35,8 +35,7 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
         
         n_features = dataset.shape[1]  
         
-        X = np.reshape(dataset[-n_steps_in:, :], (1,n_steps_in,n_features))
-            
+        X = np.reshape(dataset[-n_steps_in:, :], (1,n_steps_in,n_features))            
               
         y = dataset[-1:,-1:]
         
@@ -69,5 +68,5 @@ dataFrame = pd.DataFrame(all_MAPE)
 
 dataFrame.columns = ['Stock', 'ML', 'gain_pred', 'index_maximo_pred', 'n_steps_in', 'n_steps_out', 'interval', 'samples_test']          
           
-dataFrame.to_csv('logs/data-future_self.csv')
+dataFrame.to_csv('logs/data_future_self.csv')
 

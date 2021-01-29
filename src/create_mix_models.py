@@ -42,8 +42,8 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks)
 
         dataframe = DLmodels.get_stock_data(symbol, interval)
 
-        df2 = dataframe[['Open', 'High', 'Low', 'Close', 'Volume', 'HighLoad',
-       'Change', 'Adj Close']]        
+        df2 = dataframe[['Open', 'High', 'Low', 'Close', 'Volume', 'HighLoad', 'Change', 'Adj Close']]
+        
         df2.index = dataframe['Date']
         dataframe = pd.merge(datagrouped,df2, how='inner', left_index=True, right_index=True)
 
@@ -68,10 +68,10 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks)
 
         y = y[:,:,-1:]
 
-        stock, model = DLmodels.model_LSTM('FG-' + symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+        DLmodels.model_LSTM('FG-' + symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-        stock, model = DLmodels.model_BidirectionalLSTM('FG-' + symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+        DLmodels.model_BidirectionalLSTM('FG-' + symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-        stock, model = DLmodels.model_convLSTM1D('FG-' + symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+        DLmodels.model_convLSTM1D('FG-' + symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-        stock, model = DLmodels.model_ConvLSTM2D('FG-' + symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+        DLmodels.model_ConvLSTM2D('FG-' + symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)

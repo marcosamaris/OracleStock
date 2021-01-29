@@ -23,8 +23,8 @@ style.use('ggplot')
 n_steps_in, n_steps_out = 21, 5
 epochs = 1000
 verbose=0
-save = False
-update = False
+save = True
+update = True
 samples_test = 15
 
 interval='1d'

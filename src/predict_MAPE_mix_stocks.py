@@ -8,7 +8,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import pickle
 import functions as DLmodels
 
-n_steps_in, n_steps_out = 3, 3
+n_steps_in, n_steps_out = 21, 5
 
 samples_test = 15
 
@@ -25,7 +25,8 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
         
         dataframe = DLmodels.get_stock_data(symbol, interval)
         
-        df2 = dataframe[['Volume', 'Adj Close']]       
+        df2 = dataframe[['Open', 'High', 'Low', 'Close', 'Volume', 'HighLoad',
+       'Change', 'Adj Close']]        
         df2.index = dataframe['Date']
         dataframe = pd.merge(datagrouped,df2, how='inner', left_index=True, right_index=True)
         
@@ -75,5 +76,5 @@ dados = pd.DataFrame(all_MAPE)
 
 dados.columns = ['Stock', 'ML', 'MAPE', 'n_steps_in', 'n_steps_out', 'interval', 'samples_test']          
           
-dados.to_csv('./logs/dados-MAPE-mix.csv')
+dados.to_csv('./logs/dados_MAPE_mix.csv')
 

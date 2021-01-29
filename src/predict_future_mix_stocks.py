@@ -9,7 +9,7 @@ import pickle
 import functions as DLmodels
 
 
-n_steps_in, n_steps_out = 3, 3
+n_steps_in, n_steps_out = 21, 5
 
 samples_test = 1
 
@@ -26,7 +26,7 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
         
         dataframe = DLmodels.get_stock_data(symbol, interval)
         
-        df2 = dataframe[['Volume', 'Adj Close']]       
+        df2 = dataframe[['Open', 'High', 'Low', 'Close', 'Volume', 'HighLoad', 'Change', 'Adj Close']]
         df2.index = dataframe['Date']
         dataframe = pd.merge(datagrouped,df2, how='inner', left_index=True, right_index=True)
         
@@ -77,5 +77,5 @@ dataFrame = pd.DataFrame(all_MAPE)
 
 dataFrame.columns = ['Stock', 'ML', 'gain_pred', 'index_maximo_pred', 'n_steps_in', 'n_steps_out', 'interval', 'samples_test']          
           
-dataFrame.to_csv('logs/data-future_mix.csv')
+dataFrame.to_csv('logs/data_future_mix.csv')
 

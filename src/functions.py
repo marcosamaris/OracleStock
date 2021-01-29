@@ -36,7 +36,7 @@ from multiprocessing import Pool
 
 var_patience = 25
 
-var_batch_size = 3
+var_batch_size = 32
 
 
 def mean_absolute_percentage_error(y_true, y_pred): 
