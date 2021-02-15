@@ -60,10 +60,10 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
     n_features = X.shape[2]        
     y = y[:,:,-1:]
 
-    DLmodels.model_LSTM(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_LSTM(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-    DLmodels.model_BidirectionalLSTM(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_BidirectionalLSTM(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-    DLmodels.model_convLSTM1D(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_convLSTM1D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-    DLmodels.model_ConvLSTM2D(symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_ConvLSTM2D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
