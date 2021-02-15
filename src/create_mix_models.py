@@ -29,49 +29,53 @@ update = True
 
 interval='1d'
 
-
-
+data_trend_pt_br = pd.read_csv('./logs/trends_pt-BR.csv')
+data_trend_en_us = pd.read_csv('./logs/trends_en-US.csv')
+geo_us = 'en_us'
+geo_br = 'pt-BR'
+        
 
 datagrouped = DLmodels.data_grouped_foreign_stock(cs.foreign_stocks, interval)
 all_result = []
 
 for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks)]:
+    print(stock)
     
-    (flag, symbol) = (True, stock)
-    if flag:
+    dataframe = DLmodels.get_stock_data(stock, interval)
+    df_trend_stock_en_us = DLmodels.get_stock_trend(stock, data_trend_en_us[['date',stock]], geo_us)        
+    df_trend_stock_pt_br = DLmodels.get_stock_trend(stock, data_trend_pt_br[['date',stock]], geo_br)
 
-        dataframe = DLmodels.get_stock_data(symbol, interval)
+    dataframe['Date'] = pd.to_datetime(dataframe['Date'])
+    dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
+    dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
 
-        df2 = dataframe[['Open', 'High', 'Low', 'Close', 'Volume', 'HighLoad', 'Change', 'Adj Close']]
-        
-        df2.index = dataframe['Date']
-        dataframe = pd.merge(datagrouped,df2, how='inner', left_index=True, right_index=True)
+    df2 = dataframe.drop(['Date'], axis=1)
 
-        dataframe = DLmodels.clean_dataset(dataframe)
-        dataset = dataframe.values
-        
+    df2.index = dataframe['Date']
+    dataframe = pd.merge(datagrouped,df2, how='inner', left_index=True, right_index=True)
+    
+    dataframe = DLmodels.clean_dataset(dataframe)    
+    dataset = dataframe.dropna().ffill().values
+    
+    scaler = StandardScaler()        
+    dataset = scaler.fit_transform(dataset)        
 
-        scaler = StandardScaler()        
-        dataset = scaler.fit_transform(dataset)        
+    scaler = MinMaxScaler(feature_range=[0,1])        
+    dataset = scaler.fit_transform(dataset)
+    scaler_filename = 'scalers/' + stock + '-' + interval + '-FG.save'
+    pickle.dump(scaler, open(scaler_filename, 'wb'))
 
-        scaler = MinMaxScaler(feature_range=[0,1])        
-        dataset = scaler.fit_transform(dataset)
-        scaler_filename = 'scalers/' + stock + '-' + interval + '-FG.save'
-        pickle.dump(scaler, open(scaler_filename, 'wb'))
+    X, y = DLmodels.split_sequences(dataset[:-samples_test], n_steps_in, n_steps_out)
 
-        print(stock + ': ' + str(len(dataset)))
-        X, y = DLmodels.split_sequences(dataset[:-samples_test], n_steps_in, n_steps_out)
-        print(stock + ': ' + str(X.shape))
+    X = X[:, :, :]
+    shape_x = X.shape
 
-        X = X[:, :, :]
-        shape_x = X.shape
+    y = y[:,:,-1:]
 
-        y = y[:,:,-1:]
+    DLmodels.model_LSTM('FG-' + stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-        DLmodels.model_LSTM('FG-' + symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_BidirectionalLSTM('FG-' + stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-        DLmodels.model_BidirectionalLSTM('FG-' + symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_convLSTM1D('FG-' + stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-        DLmodels.model_convLSTM1D('FG-' + symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
-
-        DLmodels.model_ConvLSTM2D('FG-' + symbol, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_ConvLSTM2D('FG-' + stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)

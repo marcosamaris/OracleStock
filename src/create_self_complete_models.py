@@ -28,36 +28,45 @@ update = True
 samples_test = 15
 
 interval='1d'
-
-
+data_trend_pt_br = pd.read_csv('./logs/trends_pt-BR.csv')
+data_trend_en_us = pd.read_csv('./logs/trends_en-US.csv')
+geo_us = 'en_us'
+geo_br = 'pt-BR'
+        
 for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_codigo)]:
     print(stock)
     
-    df_target = DLmodels.get_stock_data(stock, interval)
+    dataframe = DLmodels.get_stock_data(stock, interval)        
         
-        
-    df_target['Moving_av']= df_target['Adj Close'].rolling(window=20,min_periods=0).mean()
+    dataframe['Moving_av']= dataframe['Adj Close'].rolling(window=20,min_periods=0).mean()
 
     i=1
-    upper_volatility=[df_target.iloc[0]['Moving_av']] 
-    lower_volatility=[df_target.iloc[0]['Moving_av']] 
-    while i<len(df_target):
-        upper_volatility.append(df_target.iloc[i-1]['Moving_av']+3/100*df_target.iloc[i-1]['Moving_av'])
-        lower_volatility.append(df_target.iloc[i-1]['Moving_av']-3/100*df_target.iloc[i-1]['Moving_av'])
+    upper_volatility=[dataframe.iloc[0]['Moving_av']] 
+    lower_volatility=[dataframe.iloc[0]['Moving_av']] 
+    while i<len(dataframe):
+        upper_volatility.append(dataframe.iloc[i-1]['Moving_av']+3/100*dataframe.iloc[i-1]['Moving_av'])
+        lower_volatility.append(dataframe.iloc[i-1]['Moving_av']-3/100*dataframe.iloc[i-1]['Moving_av'])
         i+=1
        
-    df_target['Upper_volatility']=upper_volatility
-    df_target['Lower_volatility']=lower_volatility
+    dataframe['Upper_volatility']=upper_volatility
+    dataframe['Lower_volatility']=lower_volatility
 
-    df_target['Short_resistance']= df_target['High'].rolling(window=10,min_periods=0).max()
-    df_target['Short_support']= df_target['Low'].rolling(window=10,min_periods=0).min()
-    df_target['Long_resistance']= df_target['High'].rolling(window=50,min_periods=0).max()
-    df_target['Long_support']= df_target['Low'].rolling(window=50,min_periods=0).min()
-
+    dataframe['Short_resistance']= dataframe['High'].rolling(window=10,min_periods=0).max()
+    dataframe['Short_support']= dataframe['Low'].rolling(window=10,min_periods=0).min()
+    dataframe['Long_resistance']= dataframe['High'].rolling(window=50,min_periods=0).max()
+    dataframe['Long_support']= dataframe['Low'].rolling(window=50,min_periods=0).min()
     
-    dataset = df_target[['Open', 'High', 'Low', 'Close', 'Volume', 'HighLoad',
-       'Change', 'Moving_av', 'Upper_volatility', 'Lower_volatility',
-       'Short_resistance', 'Short_support', 'Long_resistance', 'Long_support', 'Adj Close']].values
+    
+    df_trend_stock_en_us = DLmodels.get_stock_trend(stock, data_trend_en_us[['date',stock]], geo_us)        
+    df_trend_stock_pt_br = DLmodels.get_stock_trend(stock, data_trend_pt_br[['date',stock]], geo_br)
+
+    dataframe['Date'] = pd.to_datetime(dataframe['Date'])
+    dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
+    dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
+
+    dataset = dataframe.drop(['Date'], axis=1).dropna().ffill().values
+    
+    
     
     scaler = StandardScaler()
     dataset = scaler.fit_transform(dataset)

@@ -35,9 +35,41 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 from multiprocessing import Pool
 
 var_patience = 25
+var_batch_size = 3
 
-var_batch_size = 32
+def get_stock_trend(stock, df_trends, geo):
+    
+    df_trends.rename(columns={"date": "Week"},  inplace=True)
 
+    dates=[]
+    i=0
+    while i<len(df_trends):
+        dates.append(datetime.date(int(df_trends.iloc[i]['Week'].split('-')[0]),int(df_trends.iloc[i]['Week'].split('-')[1]),int(df_trends.iloc[i]['Week'].split('-')[2])))
+        i+=1
+
+    df_trends['date'] = dates
+    df_trends_req=df_trends[df_trends['date']>datetime.date(2016,1,1)]
+
+    days=[]
+    trend=[]
+    i=0
+    while i<len(df_trends_req):
+        day=df_trends_req.iloc[i]['date']
+        trend.append(df_trends_req.iloc[i][stock])
+        dates=[dates for dates in (day - datetime.timedelta(n) for n in range(7))]
+        dates.reverse()
+
+        j=0
+        while j<len(dates):
+            days.append(dates[j])
+            trend.append(df_trends_req.iloc[i][stock])
+            j+=1
+        i+=1
+
+    df_trend_final = pd.DataFrame(list(zip(days,trend)), columns=['Date','trend_hit_'+geo])
+
+    df_trend_final['Date'] = pd.to_datetime(df_trend_final['Date'])
+    return(df_trend_final)
 
 def mean_absolute_percentage_error(y_true, y_pred): 
     y_true, y_pred = np.array(y_true), np.array(y_pred)
