@@ -16,6 +16,11 @@ interval='1d'
 all_MAPE = []
 ML_Techniques = ['LSTM', 'BidirectionalLSTM', 'convLSTM1D', 'convLSTM2D']     
 
+data_trend_pt_br = pd.read_csv('./logs/trends_pt-BR.csv')
+data_trend_en_us = pd.read_csv('./logs/trends_en-US.csv')
+geo_us = 'en_us'
+geo_br = 'pt-BR'
+
 for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_codigo)]:
     print(stock)
     
@@ -41,15 +46,20 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
     df_target['Long_resistance']= df_target['High'].rolling(window=50,min_periods=0).max()
     df_target['Long_support']= df_target['Low'].rolling(window=50,min_periods=0).min()
 
-    
-    dataset = df_target[['Open', 'High', 'Low', 'Close', 'Volume', 'HighLoad',
-       'Change', 'Moving_av', 'Upper_volatility', 'Lower_volatility',
-       'Short_resistance', 'Short_support', 'Long_resistance', 'Long_support', 'Adj Close']].values
+    df_trend_stock_en_us = DLmodels.get_stock_trend(stock, data_trend_en_us[['date',stock]], geo_us)
+    df_trend_stock_pt_br = DLmodels.get_stock_trend(stock, data_trend_pt_br[['date',stock]], geo_br)
 
+    df_target['Date'] = pd.to_datetime(df_target['Date'])
+    dataframe = df_target
+    dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
+    dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
+
+    dataset = dataframe.drop(['Date'], axis=1).dropna().ffill().values
+    
     scaler = StandardScaler()
     dataset = scaler.fit_transform(dataset)
 
-    scaler_filename = 'scalers/' + stock + '_complete_' + interval + '.save'   
+    scaler_filename = 'scalers/complete_' + stock + '_complete_' + interval + '.save'   
     scaler = pickle.load(open(scaler_filename, 'rb'))
     dataset = scaler.fit_transform(dataset)
     
@@ -74,15 +84,15 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
                                                 np.reshape(X[-samples_test:], (samples_test,n_steps_in, n_features)),
                                                 interval, n_steps_in)
         if ML_tech == 'BidirectionalLSTM':
-            predictions = DLmodels.predict_BidirectionalLSTM('complete_complete_'+stock, 
+            predictions = DLmodels.predict_BidirectionalLSTM('complete_'+stock, 
                                                              np.reshape(X[-samples_test:], (samples_test,n_steps_in, n_features)), 
                                                              interval, n_steps_in)
         if ML_tech == 'convLSTM1D':
-            predictions = DLmodels.predict_convLSTM1D('complete_complete_complete_'+stock, 
+            predictions = DLmodels.predict_convLSTM1D('complete_'+stock, 
                                                       np.reshape(X[-samples_test:], (samples_test,n_steps_in, n_features, 1)), 
                                                       interval, n_steps_in)
         if ML_tech == 'convLSTM2D':
-            predictions = DLmodels.predict_convLSTM2D('complete_complete_complete_complete_'+stock, 
+            predictions = DLmodels.predict_convLSTM2D('complete_'+stock, 
                                                       np.reshape(X[-samples_test:], (samples_test,n_steps_in, n_features, 1, 1)), 
                                                       interval, n_steps_in)   
     

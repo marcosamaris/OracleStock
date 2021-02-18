@@ -14,32 +14,38 @@ samples_test = 15
 
 ML_Techniques = ['LSTM', 'BidirectionalLSTM', 'convLSTM1D', 'convLSTM2D']     
 interval='1d'
+data_trend_pt_br = pd.read_csv('./logs/trends_pt-BR.csv')
+data_trend_en_us = pd.read_csv('./logs/trends_en-US.csv')
+geo_us = 'en_us'
+geo_br = 'pt-BR'
 
 datagrouped = DLmodels.data_grouped_foreign_stock(cs.foreign_stocks, interval)
 
 all_MAPE = []
-for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_codigo)]:
+for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + 65]:
     print(stock)
     (flag, symbol) = (True, stock)
     if flag:
         
         dataframe = DLmodels.get_stock_data(symbol, interval)
         
-        df2 = dataframe[['Open', 'High', 'Low', 'Close', 'Volume', 'HighLoad',
-       'Change', 'Adj Close']]        
-        df2.index = dataframe['Date']
-        dataframe = pd.merge(datagrouped,df2, how='inner', left_index=True, right_index=True)
+        df2 = dataframe        
+        df2['Date'] = pd.to_datetime(df2['Date'])
+        dataframe = df2.merge(datagrouped, how='inner', on='Date')
         
-        dataframe = DLmodels.clean_dataset(dataframe)
+        df_trend_stock_en_us = DLmodels.get_stock_trend(stock, data_trend_en_us[['date',stock]], geo_us)
+        df_trend_stock_pt_br = DLmodels.get_stock_trend(stock, data_trend_pt_br[['date',stock]], geo_br)
 
-        dataframe = dataframe.dropna()
-        
+        dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
+        dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
+
+        dataset = dataframe.drop(['Date'], axis=1).dropna().ffill().values        
         scaler = StandardScaler()
-        dataset = scaler.fit_transform(dataframe.ffill().values)
+        dataset = scaler.fit_transform(dataset)
 
-        scaler_filename = 'scalers/' + stock + '-' + interval + '-FG.save'
+        scaler_filename = 'scalers/FG_' + stock + '-' + interval + '-FG.save'
         scaler = pickle.load(open(scaler_filename, 'rb'))
-        dataset = scaler.fit_transform(dataframe.iloc[:,:].ffill().values)
+        dataset = scaler.fit_transform(dataset)
         
         X, y = DLmodels.split_sequences(dataset, n_steps_in, n_steps_out)
         X = X[:, :, :]

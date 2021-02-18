@@ -13,25 +13,33 @@ n_steps_in, n_steps_out = 7, 1
 interval='1wk'
 samples_test = 5
 all_MAPE = []
-ML_Techniques = ['LSTM', 'BidirectionalLSTM', 'convLSTM1D', 'convLSTM2D']     
+ML_Techniques = ['LSTM', 'BidirectionalLSTM', 'convLSTM1D']     
+data_trend_pt_br = pd.read_csv('./logs/trends_pt-BR.csv')
+data_trend_en_us = pd.read_csv('./logs/trends_en-US.csv')
+geo_us = 'en_us'
+geo_br = 'pt-BR'
 
-for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_codigo)]:
-    print(stock)
-    (flag, symbol) = (True, stock)
-    if flag:
+for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + 120]:#len(cs.stocks_codigo)]:
+#    if not (stock in ['TIMS3']):
+        print(stock)
         
-        dataframe = DLmodels.get_stock_data(symbol, interval)
-        
-        dataframe = dataframe[['Open', 'High', 'Low', 'Close', 'Volume', 'HighLoad', 'Change', 'Adj Close']]
+        dataframe = DLmodels.get_stock_data(stock, interval)
+        df_trend_stock_en_us = DLmodels.get_stock_trend(stock, data_trend_en_us[['date',stock]], geo_us)
+        df_trend_stock_pt_br = DLmodels.get_stock_trend(stock, data_trend_pt_br[['date',stock]], geo_br)
 
-        dataframe = DLmodels.clean_dataset(dataframe)    
+        dataframe['Date'] = pd.to_datetime(dataframe['Date'])
+        dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
+        dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
+
+        #dataframe = DLmodels.clean_dataset(dataframe)    
+        dataset = dataframe.drop(['Date'], axis=1).dropna().ffill().values
 
         scaler = StandardScaler()
-        dataset = scaler.fit_transform(dataframe.ffill().values)
+        dataset = scaler.fit_transform(dataset)
 
         scaler_filename = 'scalers/' + stock + '-' + interval + '.save'
         scaler = pickle.load(open(scaler_filename, 'rb'))
-        dataset = scaler.fit_transform(dataframe.iloc[:,:].ffill().values)
+        dataset = scaler.fit_transform(dataset)
         
         X, y = DLmodels.split_sequences(dataset, n_steps_in, n_steps_out)
         X = X[:, :, :]
