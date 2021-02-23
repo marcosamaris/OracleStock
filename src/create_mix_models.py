@@ -16,6 +16,7 @@ from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 
 import pickle
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 
 n_steps_in, n_steps_out = 50, 3
@@ -31,9 +32,9 @@ data_trend_pt_br = pd.read_csv('./logs/trends_pt-BR.csv')
 data_trend_en_us = pd.read_csv('./logs/trends_en-US.csv')
 geo_us = 'en_us'
 geo_br = 'pt-BR'
+main_df, cor =  DLmodels.get_correlation_stock_matrix(cs.stocks_codigo)
 
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'        
 
 datagrouped = DLmodels.data_grouped_foreign_stock(cs.foreign_stocks, interval)
 all_result = []
@@ -48,6 +49,11 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks)
     dataframe['Date'] = pd.to_datetime(dataframe['Date'])
     #dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
     #dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
+
+    df_relevant = DLmodels.relevant_stocks(stock,main_df, cor)
+    df_relevant.index = pd.to_datetime(df_relevant.index)
+    dataframe.merge(df_relevant, how='inner', on='Date')
+    
 
     df2 = dataframe.drop(['Date'], axis=1)
 

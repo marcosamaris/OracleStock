@@ -28,6 +28,7 @@ data_trend_pt_br = pd.read_csv('./logs/trends_pt-BR.csv')
 data_trend_en_us = pd.read_csv('./logs/trends_en-US.csv')
 geo_us = 'en_us'
 geo_br = 'pt-BR'
+main_df, cor =  DLmodels.get_correlation_stock_matrix(cs.stocks_codigo)
         
 for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_codigo)]:
     print(stock)
@@ -59,6 +60,10 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
     dataframe['Date'] = pd.to_datetime(dataframe['Date'])
     #dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
     #dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
+
+    df_relevant = DLmodels.relevant_stocks(stock,main_df, cor)
+    df_relevant.index = pd.to_datetime(df_relevant.index)
+    dataframe.merge(df_relevant, how='inner', on='Date')
 
     dataset = dataframe.drop(['Date'], axis=1).dropna().ffill().values
     
