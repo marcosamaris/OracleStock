@@ -37,6 +37,58 @@ from multiprocessing import Pool
 var_patience = 25
 var_batch_size = 3
 
+
+def get_correlation_stock_matrix(stocks):
+    main_df=pd.DataFrame()
+
+    for count,ticker in enumerate(stocks):
+
+        df=pd.read_csv('data/{}-1d.csv'.format(ticker))
+        df.set_index('Date',inplace=True)
+
+
+        df.rename(columns={'Adj Close': ticker}, inplace=True)
+        df.drop(['Open','High','Low',"Close",'Volume'],axis=1,inplace=True)
+
+
+        df = clean_dataset(df)
+
+
+        if main_df.empty:
+            main_df=df
+        else:
+            main_df=main_df.join(df,how='outer')
+
+
+    
+    return main_df, main_df.corr()
+
+
+
+
+def relevant_stocks(stock,main_df, cor):
+
+    cor_target = abs(cor[stock])
+
+    thresh_cor = 0.9
+    len_df_relevant = 0
+    while len_df_relevant < 5:
+        
+        relevant_features = cor_target[(cor_target>thresh_cor-0.05)]
+
+        relevant_features_2 = relevant_features[(cor_target<thresh_cor)]
+
+        relevant_features_2.sort_values(ascending=False, inplace=True)
+
+        relevant_features_3=relevant_features_2[:5]
+
+        relevant_tickers=relevant_features_3.keys()
+
+        len_df_relevant=len(list(relevant_tickers))
+        thresh_cor = thresh_cor-0.05
+        
+    return main_df[relevant_tickers].fillna(main_df.mean())
+    
 def get_stock_trend(stock, df_trends, geo):
     
     df_trends.rename(columns={"date": "Week"},  inplace=True)
