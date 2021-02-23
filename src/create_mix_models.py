@@ -2,25 +2,23 @@ import functions as DLmodels
 import constants_stocks as cs
 import math
 import sys
-
-import matplotlib.pyplot as plt
+import os
 # from pandas.plotting import register_matplotlib_converters
 # register_matplotlib_converters()
 # plt.rcParams.update({'figure.max_open_warning': 0})
-
+import warnings
+warnings.filterwarnings("ignore")
 
 import numpy as np
 import pandas as pd
 
-from matplotlib import style
 from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 
 import pickle
 
-style.use('ggplot')
 
-n_steps_in, n_steps_out = 21, 5
+n_steps_in, n_steps_out = 50, 3
 samples_test = 15
 epochs = 1000
 verbose=0
@@ -33,7 +31,9 @@ data_trend_pt_br = pd.read_csv('./logs/trends_pt-BR.csv')
 data_trend_en_us = pd.read_csv('./logs/trends_en-US.csv')
 geo_us = 'en_us'
 geo_br = 'pt-BR'
-        
+
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'        
 
 datagrouped = DLmodels.data_grouped_foreign_stock(cs.foreign_stocks, interval)
 all_result = []
@@ -46,8 +46,8 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks)
     df_trend_stock_pt_br = DLmodels.get_stock_trend(stock, data_trend_pt_br[['date',stock]], geo_br)
 
     dataframe['Date'] = pd.to_datetime(dataframe['Date'])
-    dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
-    dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
+    #dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
+    #dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
 
     df2 = dataframe.drop(['Date'], axis=1)
 
@@ -62,7 +62,7 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks)
 
     scaler = MinMaxScaler(feature_range=[0,1])        
     dataset = scaler.fit_transform(dataset)
-    scaler_filename = 'scalers/' + stock + '-' + interval + '-FG.save'
+    scaler_filename = 'scalers/FG_' + stock + '-' + interval + '-FG.save'
     pickle.dump(scaler, open(scaler_filename, 'wb'))
 
     X, y = DLmodels.split_sequences(dataset[:-samples_test], n_steps_in, n_steps_out)
@@ -72,10 +72,10 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks)
 
     y = y[:,:,-1:]
 
-    DLmodels.model_LSTM('FG-' + stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_LSTM('FG_' + stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-    DLmodels.model_BidirectionalLSTM('FG-' + stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_BidirectionalLSTM('FG_' + stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-    DLmodels.model_convLSTM1D('FG-' + stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_convLSTM1D('FG_' + stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-    DLmodels.model_ConvLSTM2D('FG-' + stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_ConvLSTM2D('FG_' + stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)

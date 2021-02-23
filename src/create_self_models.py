@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 # from pandas.plotting import register_matplotlib_converters
 # register_matplotlib_converters()
 # plt.rcParams.update({'figure.max_open_warning': 0})
-
+import warnings
+warnings.filterwarnings("ignore")
 
 import numpy as np
 import pandas as pd
@@ -20,12 +21,12 @@ import pickle
 
 style.use('ggplot')
 
-n_steps_in, n_steps_out = 14, 1
+n_steps_in, n_steps_out = 21, 1
 epochs = 1000
-verbose=0
+verbose = 0
 save = True
 update = True
-samples_test = 5
+samples_test = 7
 
 interval='1wk'
 
@@ -43,11 +44,10 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
     df_trend_stock_pt_br = DLmodels.get_stock_trend(stock, data_trend_pt_br[['date',stock]], geo_br)
 
     dataframe['Date'] = pd.to_datetime(dataframe['Date'])
-    dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
-    dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
+    #dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
+    #dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
 
     dataset = dataframe.drop(['Date'], axis=1).dropna().ffill().values
-
     scaler = StandardScaler()
     dataset = scaler.fit_transform(dataset)
 
@@ -61,9 +61,6 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
     y = y[:,:,-1:]
 
     DLmodels.model_LSTM(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
-
     DLmodels.model_BidirectionalLSTM(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
-
     DLmodels.model_convLSTM1D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
-
     DLmodels.model_ConvLSTM2D(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)

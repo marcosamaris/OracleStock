@@ -2,25 +2,21 @@ import functions as DLmodels
 import constants_stocks as cs
 import math
 import sys
-
-import matplotlib.pyplot as plt
-# from pandas.plotting import register_matplotlib_converters
-# register_matplotlib_converters()
-# plt.rcParams.update({'figure.max_open_warning': 0})
-
+import os
+import warnings
+warnings.filterwarnings("ignore")
 
 import numpy as np
 import pandas as pd
 
-from matplotlib import style
 from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 
 import pickle
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-style.use('ggplot')
 
-n_steps_in, n_steps_out = 21, 5
+n_steps_in, n_steps_out = 50, 3
 epochs = 1000
 verbose=0
 save = True
@@ -61,8 +57,8 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
     df_trend_stock_pt_br = DLmodels.get_stock_trend(stock, data_trend_pt_br[['date',stock]], geo_br)
 
     dataframe['Date'] = pd.to_datetime(dataframe['Date'])
-    dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
-    dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
+    #dataframe = dataframe.merge(df_trend_stock_en_us,how="inner",on="Date")
+    #dataframe = dataframe.merge(df_trend_stock_pt_br,how="inner",on="Date")
 
     dataset = dataframe.drop(['Date'], axis=1).dropna().ffill().values
     
@@ -73,17 +69,17 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
 
     scaler = MinMaxScaler(feature_range=[0,1])        
     dataset = scaler.fit_transform(dataset)
-    scaler_filename = 'scalers/' + stock + '_complete_' + interval + '.save'        
+    scaler_filename = 'scalers/complete_' + stock + '_complete_' + interval + '.save'        
     pickle.dump(scaler, open(scaler_filename, 'wb'))
     
     X, y = DLmodels.split_sequences(dataset[:-samples_test], n_steps_in, n_steps_out)        
     n_features = X.shape[2]        
     y = y[:,:,-1:]
     
-    stock, model = DLmodels.model_LSTM('complete_'+stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_LSTM('complete_'+stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
     
-    stock, model = DLmodels.model_BidirectionalLSTM('complete_'+stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_BidirectionalLSTM('complete_'+stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
 
-    stock, model = DLmodels.model_convLSTM1D('complete_'+stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_convLSTM1D('complete_'+stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
         
-    stock, model = DLmodels.model_ConvLSTM2D('complete_'+stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
+    DLmodels.model_ConvLSTM2D('complete_'+stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
