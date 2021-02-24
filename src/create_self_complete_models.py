@@ -34,6 +34,8 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
     print(stock)
     
     dataframe = DLmodels.get_stock_data(stock, interval)        
+    if len(dataframe) < 200:
+        continue
         
     dataframe['Moving_av']= dataframe['Adj Close'].rolling(window=20,min_periods=0).mean()
 
@@ -63,18 +65,16 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
 
     df_relevant = DLmodels.relevant_stocks(stock,main_df, cor)
     df_relevant.index = pd.to_datetime(df_relevant.index)
-    dataframe.merge(df_relevant, how='inner', on='Date')
+    dataframe = dataframe.merge(df_relevant, how='inner', on='Date')
 
-    dataset = dataframe.drop(['Date'], axis=1).dropna().ffill().values
-    
-    
+    dataset = DLmodels.clean_dataset(dataframe.drop(['Date'], axis=1)).values
     
     scaler = StandardScaler()
     dataset = scaler.fit_transform(dataset)
 
     scaler = MinMaxScaler(feature_range=[0,1])        
     dataset = scaler.fit_transform(dataset)
-    scaler_filename = 'scalers/complete_' + stock + '_complete_' + interval + '.save'        
+    scaler_filename = 'scalers/complete_' + stock + '_' + interval + '.save'        
     pickle.dump(scaler, open(scaler_filename, 'wb'))
     
     X, y = DLmodels.split_sequences(dataset[:-samples_test], n_steps_in, n_steps_out)        

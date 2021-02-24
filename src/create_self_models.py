@@ -43,6 +43,8 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
     print(stock)    
         
     dataframe = DLmodels.get_stock_data(stock, interval) 
+    if len(dataframe) < 50:
+        continue
 
     df_trend_stock_en_us = DLmodels.get_stock_trend(stock, data_trend_en_us[['date',stock]], geo_us)        
     df_trend_stock_pt_br = DLmodels.get_stock_trend(stock, data_trend_pt_br[['date',stock]], geo_br)
@@ -54,9 +56,8 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
     
     df_relevant = DLmodels.relevant_stocks(stock,main_df, cor)
     df_relevant.index = pd.to_datetime(df_relevant.index)
-    dataframe.merge(df_relevant, how='inner', on='Date')
-
-    dataset = dataframe.drop(['Date'], axis=1).dropna().ffill().values
+    dataframe = dataframe.merge(df_relevant, how='inner', on='Date')
+    dataset = DLmodels.clean_dataset(dataframe.drop(['Date'], axis=1)).values
     scaler = StandardScaler()
     dataset = scaler.fit_transform(dataset)
 
