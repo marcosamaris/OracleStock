@@ -34,8 +34,8 @@ import plotnine as p9
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 from multiprocessing import Pool
 
-var_patience = 50
-var_batch_size = 3
+var_patience = 25
+var_batch_size = 1
 
 
 def get_correlation_stock_matrix(stocks):

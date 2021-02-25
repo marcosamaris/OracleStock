@@ -20,11 +20,12 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 
 import pickle
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 style.use('ggplot')
 
-n_steps_in, n_steps_out = 21, 1
-epochs = 1000
+n_steps_in, n_steps_out = 30, 1
+epochs = 500
 verbose = 0
 save = True
 update = True
@@ -61,18 +62,24 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
     dataframe['Long_resistance']= dataframe['High'].rolling(window=50,min_periods=0).max()
     dataframe['Long_support']= dataframe['Low'].rolling(window=50,min_periods=0).min()
     
-    dataframe['Date'] = pd.to_datetime(dataframe['Date'])
+
+    #dataframe['Date'] = pd.to_datetime(dataframe['Date'])
     
-    df_relevant = DLmodels.relevant_stocks(stock,main_df, cor)
-    df_relevant.index = pd.to_datetime(df_relevant.index) 
-    dataframe.merge(df_relevant, how='inner', on='Date')
+    #df_relevant = DLmodels.relevant_stocks(stock,main_df, cor)
+    #df_relevant.index = pd.to_datetime(df_relevant.index) 
+    #dataframe.merge(df_relevant, how='inner', on='Date')
 
 
-    dataframe = dataframe.merge(datagrouped, how='inner', on='Date')
-    dataset = dataframe.drop(['Date'], axis=1).dropna().ffill().values
+    #dataframe = dataframe.merge(datagrouped, how='inner', on='Date')
+    #dataframe = dataframe.drop(['Date'], axis=1)
+    dataframe = dataframe[['Adj Close', 'Moving_av', 'Upper_volatility', 'Lower_volatility', 'Long_resistance', 'Long_support']]
+    list_columns = list(dataframe.columns)
+    index_adj_close = list_columns.index('Adj Close')
+
+    dataset = dataframe.dropna().ffill().values
     
     scaler = StandardScaler()
-    dataset = scaler.fit_transform(dataset)
+    dataset = scaler.fit_transform(dataset.reshape(-1,1))
     scaler_filename = 'scalers/Standard_week_' + stock + '-' + interval + '.save'        
     pickle.dump(scaler, open(scaler_filename, 'wb'))
     
@@ -83,7 +90,7 @@ for stock in cs.stocks_codigo[int(sys.argv[1]):int(sys.argv[1]) + len(cs.stocks_
 
     X, y = DLmodels.split_sequences(dataset[:-samples_test], n_steps_in, n_steps_out)        
     n_features = X.shape[2]        
-    y = y[:,:,-1:]
+    y = y[:,:,index_adj_close:index_adj_close+1]
 
     DLmodels.model_LSTM(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
     DLmodels.model_BidirectionalLSTM(stock, X, y, interval, n_steps_in, n_steps_out, epochs, save, update, verbose)
